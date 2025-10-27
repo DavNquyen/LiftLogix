@@ -3,9 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Login() {
   const router = useRouter();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -17,16 +19,14 @@ export default function Login() {
     setLoading(true);
 
     try {
-      // TODO: Implement actual API call
-      console.log("Login attempt:", { email, password });
+      // Call login from AuthContext (which calls the API)
+      await login(email, password);
 
-      // Simulated login - replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // For now, just redirect to dashboard
+      // Redirect to dashboard on successful login
       router.push("/dashboard");
-    } catch (err) {
-      setError("Invalid email or password");
+    } catch (err: any) {
+      // Display error message from API or generic message
+      setError(err.message || "Invalid email or password");
     } finally {
       setLoading(false);
     }

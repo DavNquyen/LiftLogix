@@ -3,9 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Register() {
   const router = useRouter();
+  const { register } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,16 +20,14 @@ export default function Register() {
     setLoading(true);
 
     try {
-      // TODO: Implement actual API call
-      console.log("Registration attempt:", { name, email, password });
+      // Call register from AuthContext (which calls the API and auto-logs in)
+      await register(name, email, password);
 
-      // Simulated registration - replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // For now, just redirect to dashboard
+      // Redirect to dashboard on successful registration
       router.push("/dashboard");
-    } catch (err) {
-      setError("Registration failed. Please try again.");
+    } catch (err: any) {
+      // Display error message from API or generic message
+      setError(err.message || "Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: "📊" },
@@ -13,6 +14,13 @@ const navItems = [
 
 export default function DashboardNav() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    router.push("/");
+  };
 
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-10">
@@ -42,7 +50,10 @@ export default function DashboardNav() {
             })}
           </div>
 
-          <button className="text-gray-600 hover:text-gray-900">
+          <button
+            onClick={handleLogout}
+            className="text-gray-600 hover:text-gray-900 transition"
+          >
             Logout
           </button>
         </div>

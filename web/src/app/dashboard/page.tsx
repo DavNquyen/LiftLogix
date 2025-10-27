@@ -1,9 +1,17 @@
+"use client";
+
+import { useAuth } from "@/contexts/AuthContext";
+
 export default function Dashboard() {
+  const { user } = useAuth();
+
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
       <div className="bg-white rounded-lg shadow p-6">
-        <h1 className="text-3xl font-bold text-gray-800">Welcome back!</h1>
+        <h1 className="text-3xl font-bold text-gray-800">
+          Welcome back, {user?.name}!
+        </h1>
         <p className="text-gray-600 mt-2">Here's your fitness overview for today</p>
       </div>
 
