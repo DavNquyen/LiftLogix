@@ -23,27 +23,27 @@ export default function DashboardNav() {
   };
 
   return (
-    <nav className="bg-white border-b border-gray-200 sticky top-0 z-10">
-      <div className="container mx-auto px-4">
+    <nav className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
+      <div className="container mx-auto px-6">
         <div className="flex items-center justify-between h-16">
-          <Link href="/dashboard" className="text-2xl font-bold text-blue-600">
+          <Link href="/dashboard" className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
             LiftLogix
           </Link>
 
-          <div className="hidden md:flex space-x-8">
+          <div className="hidden md:flex items-center gap-1">
             {navItems.map((item) => {
               const isActive = pathname === item.href;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition ${
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all ${
                     isActive
-                      ? "bg-blue-50 text-blue-600 font-semibold"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                      ? "bg-indigo-50 text-indigo-600"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                   }`}
                 >
-                  <span>{item.icon}</span>
+                  <span className="text-lg">{item.icon}</span>
                   <span>{item.label}</span>
                 </Link>
               );
@@ -52,27 +52,27 @@ export default function DashboardNav() {
 
           <button
             onClick={handleLogout}
-            className="text-gray-600 hover:text-gray-900 transition"
+            className="px-4 py-2 text-slate-600 hover:text-slate-900 font-medium transition-colors"
           >
             Logout
           </button>
         </div>
 
         {/* Mobile Navigation */}
-        <div className="md:hidden flex overflow-x-auto pb-3 space-x-4">
+        <div className="md:hidden flex overflow-x-auto pb-4 space-x-2 scrollbar-hide">
           {navItems.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg whitespace-nowrap transition ${
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl whitespace-nowrap font-medium transition-all ${
                   isActive
-                    ? "bg-blue-50 text-blue-600 font-semibold"
-                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                    ? "bg-indigo-50 text-indigo-600"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                 }`}
               >
-                <span>{item.icon}</span>
+                <span className="text-lg">{item.icon}</span>
                 <span>{item.label}</span>
               </Link>
             );
