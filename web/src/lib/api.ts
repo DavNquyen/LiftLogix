@@ -136,6 +136,18 @@ export const workouts = {
       body: JSON.stringify(data),
     });
   },
+
+  async addSet(workoutId: number, setData: {
+    exercise_id: number;
+    weight: number;
+    reps: number;
+    rpe?: number;
+  }) {
+    return fetchApi(`/workouts/${workoutId}/sets`, {
+      method: "POST",
+      body: JSON.stringify(setData),
+    });
+  },
 };
 
 // Meals API

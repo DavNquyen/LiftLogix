@@ -7,6 +7,7 @@ from .schemas import (
     UserCreate, UserLogin, UserResponse, Token,
     ExerciseCreate, ExerciseResponse,
     WorkoutCreate, WorkoutResponse,
+    SetCreate, SetResponse,
     MealCreate, MealResponse
 )
 from .auth import (
@@ -144,6 +145,37 @@ def create_workout(
     db.commit()
     db.refresh(db_workout)
     return db_workout
+
+
+@router.post("/workouts/{workout_id}/sets", response_model=SetResponse, status_code=status.HTTP_201_CREATED)
+def add_set_to_workout(
+    workout_id: int,
+    set_data: SetCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Add a single set to an existing workout"""
+    # Verify workout exists and belongs to user
+    workout = db.query(Workout).filter(
+        Workout.id == workout_id,
+        Workout.user_id == current_user.id
+    ).first()
+
+    if not workout:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Workout not found"
+        )
+
+    # Create the set
+    db_set = Set(
+        workout_id=workout_id,
+        **set_data.model_dump()
+    )
+    db.add(db_set)
+    db.commit()
+    db.refresh(db_set)
+    return db_set
 
 
 # Meal Routes
