@@ -291,7 +291,6 @@ This project is built for CS 4624 (Fall 2025).
 ## 👥 Team
 
 - David Nguyen (Author)
-- [Add your teammates here]
 
 ---
 
