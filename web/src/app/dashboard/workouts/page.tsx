@@ -22,6 +22,7 @@ interface Workout {
   id: number;
   user_id: number;
   date: string;
+  name?: string;
   notes?: string;
   sets: Set[];
 }
@@ -34,12 +35,17 @@ export default function Workouts() {
 
   // Form state
   const [showNewWorkoutForm, setShowNewWorkoutForm] = useState(false);
+  const [workoutName, setWorkoutName] = useState("");
   const [workoutNotes, setWorkoutNotes] = useState("");
   const [currentSets, setCurrentSets] = useState<Set[]>([]);
   const [selectedExerciseId, setSelectedExerciseId] = useState<number | "">("");
   const [weight, setWeight] = useState("");
   const [reps, setReps] = useState("");
   const [rpe, setRpe] = useState("");
+  const [weightUnit, setWeightUnit] = useState<"kg" | "lb">("kg");
+
+  //Delete confirmation
+  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
 
   useEffect(() => {
     loadData();
@@ -95,17 +101,30 @@ export default function Workouts() {
 
     try {
       await workouts.create({
+        name: workoutName || undefined,
         notes: workoutNotes || undefined,
         sets: currentSets,
       });
 
       // Reset form and reload data
       setShowNewWorkoutForm(false);
+      setWorkoutName("");
       setWorkoutNotes("");
       setCurrentSets([]);
       await loadData();
     } catch (err) {
       alert("Failed to save workout");
+      console.error(err);
+    }
+  };
+
+  const deleteWorkout = async (workoutId: number) => {
+    try {
+      await workouts.delete(workoutId);
+      await loadData();
+      setDeleteConfirm(null);
+    } catch (err) {
+      alert("Failed to delete workout");
       console.error(err);
     }
   };
@@ -128,7 +147,7 @@ export default function Workouts() {
       <div className="flex justify-center items-center min-h-screen">
         <div className="text-center">
           <div className="text-4xl mb-4">⏳</div>
-          <p className="text-slate-600">Loading workouts...</p>
+          <p className="text-zinc-400">Loading workouts...</p>
         </div>
       </div>
     );
@@ -138,137 +157,159 @@ export default function Workouts() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-slate-900">Workouts</h1>
+        <h1 className="text-5xl font-black text-white">WORKOUTS</h1>
         <button
           onClick={() => setShowNewWorkoutForm(!showNewWorkoutForm)}
-          className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all"
+          className="px-6 py-3 bg-blue-600 text-white font-black hover:bg-blue-500 transition-all"
         >
-          {showNewWorkoutForm ? "Cancel" : "+ New Workout"}
+          {showNewWorkoutForm ? "CANCEL" : "+ NEW WORKOUT"}
         </button>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl">
+        <div className="bg-red-900 border-2 border-red-600 text-red-100 px-4 py-3 font-bold">
           {error}
         </div>
       )}
 
       {/* New Workout Form */}
       {showNewWorkoutForm && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-          <h2 className="text-2xl font-bold text-slate-900 mb-6">New Workout</h2>
+        <div className="bg-zinc-900 border-2 border-zinc-800 p-8">
+          <h2 className="text-3xl font-black text-white mb-8">NEW WORKOUT</h2>
 
-          {/* Notes */}
+          {/* Workout Name */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Notes (optional)
+            <label className="block text-sm font-bold text-zinc-400 mb-2">
+              WORKOUT NAME
             </label>
             <input
               type="text"
-              value={workoutNotes}
-              onChange={(e) => setWorkoutNotes(e.target.value)}
-              placeholder="e.g., Push Day A"
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              value={workoutName}
+              onChange={(e) => setWorkoutName(e.target.value)}
+              placeholder="e.g., Push Day, Pull Day, Leg Day..."
+              className="w-full px-4 py-3 bg-zinc-800 border-2 border-zinc-700 text-white font-bold focus:outline-none focus:border-blue-600"
             />
           </div>
 
-          {/* Add Set Form */}
-          <div className="grid md:grid-cols-5 gap-4 mb-6">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Exercise *
-              </label>
-              <select
-                value={selectedExerciseId}
-                onChange={(e) => setSelectedExerciseId(Number(e.target.value))}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="">Select exercise</option>
-                {exerciseList.map((ex) => (
-                  <option key={ex.id} value={ex.id}>
-                    {ex.name} {ex.muscle_group && `(${ex.muscle_group})`}
-                  </option>
-                ))}
-              </select>
-            </div>
+          {/* Exercise Selection */}
+          <div className="mb-6">
+            <label className="block text-sm font-bold text-zinc-400 mb-2">
+              SELECT EXERCISE
+            </label>
+            <select
+              value={selectedExerciseId}
+              onChange={(e) => setSelectedExerciseId(e.target.value === "" ? "" : Number(e.target.value))}
+              className="w-full px-4 py-3 bg-zinc-800 border-2 border-zinc-700 text-white font-bold focus:outline-none focus:border-blue-600"
+            >
+              <option value="">Choose an exercise...</option>
+              {exerciseList.map((exercise) => (
+                <option key={exercise.id} value={exercise.id}>
+                  {exercise.name} {exercise.muscle_group && `(${exercise.muscle_group})`}
+                </option>
+              ))}
+            </select>
+          </div>
 
+          {/* Set Details */}
+          <div className="grid md:grid-cols-3 gap-4 mb-6">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Weight *
-              </label>
+              <div className="flex justify-between items-center mb-2">
+                <label className="block text-sm font-bold text-zinc-400">
+                  WEIGHT
+                </label>
+                <div className="flex border-2 border-zinc-700 bg-zinc-800">
+                  <button
+                    type="button"
+                    onClick={() => setWeightUnit("kg")}
+                    className={`px-3 py-1 text-xs font-black transition ${
+                      weightUnit === "kg"
+                        ? "bg-blue-600 text-white"
+                        : "text-zinc-400 hover:text-white"
+                    }`}
+                  >
+                    KG
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWeightUnit("lb")}
+                    className={`px-3 py-1 text-xs font-black transition ${
+                      weightUnit === "lb"
+                        ? "bg-orange-600 text-white"
+                        : "text-zinc-400 hover:text-white"
+                    }`}
+                  >
+                    LB
+                  </button>
+                </div>
+              </div>
               <input
                 type="number"
-                step="0.5"
                 value={weight}
                 onChange={(e) => setWeight(e.target.value)}
-                placeholder="kg/lbs"
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="0"
+                className="w-full px-4 py-3 bg-zinc-800 border-2 border-zinc-700 text-white font-bold focus:outline-none focus:border-blue-600"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Reps *
+              <label className="block text-sm font-bold text-zinc-400 mb-2">
+                REPS
               </label>
               <input
                 type="number"
                 value={reps}
                 onChange={(e) => setReps(e.target.value)}
-                placeholder="10"
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="0"
+                className="w-full px-4 py-3 bg-zinc-800 border-2 border-zinc-700 text-white font-bold focus:outline-none focus:border-blue-600"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                RPE
+              <label className="block text-sm font-bold text-zinc-400 mb-2">
+                RPE (OPTIONAL)
               </label>
               <input
                 type="number"
                 step="0.5"
                 value={rpe}
                 onChange={(e) => setRpe(e.target.value)}
-                placeholder="8"
-                max="10"
-                min="1"
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="1-10"
+                className="w-full px-4 py-3 bg-zinc-800 border-2 border-zinc-700 text-white font-bold focus:outline-none focus:border-blue-600"
               />
             </div>
           </div>
 
           <button
             onClick={addSetToForm}
-            className="mb-6 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg font-medium hover:bg-slate-200 transition"
+            className="mb-6 px-6 py-3 bg-zinc-800 border-2 border-zinc-700 hover:border-orange-600 text-white font-bold transition"
           >
-            + Add Set
+            + ADD SET
           </button>
 
           {/* Current Sets */}
           {currentSets.length > 0 && (
             <div className="mb-6">
-              <h3 className="text-lg font-semibold text-slate-900 mb-3">
-                Sets ({currentSets.length})
-              </h3>
+              <h3 className="text-lg font-black text-white mb-4">SETS FOR THIS WORKOUT:</h3>
               <div className="space-y-2">
                 {currentSets.map((set, index) => (
                   <div
                     key={index}
-                    className="flex justify-between items-center p-4 bg-slate-50 rounded-lg"
+                    className="flex justify-between items-center bg-zinc-800 border-2 border-zinc-700 p-4"
                   >
-                    <div>
-                      <span className="font-medium text-slate-900">
+                    <div className="flex gap-6">
+                      <span className="font-black text-white">
                         {getExerciseName(set.exercise_id)}
                       </span>
-                      <span className="text-slate-600 ml-4">
-                        {set.weight}kg × {set.reps} reps
+                      <span className="text-zinc-400 font-bold">
+                        {set.weight}{weightUnit} × {set.reps} reps
                         {set.rpe && ` @ RPE ${set.rpe}`}
                       </span>
                     </div>
                     <button
                       onClick={() => removeSet(index)}
-                      className="text-red-600 hover:text-red-700 font-medium"
+                      className="text-red-500 hover:text-red-400 font-bold"
                     >
-                      Remove
+                      REMOVE
                     </button>
                   </div>
                 ))}
@@ -276,41 +317,39 @@ export default function Workouts() {
             </div>
           )}
 
-          {/* Save Button */}
-          <div className="flex gap-3">
-            <button
-              onClick={saveWorkout}
-              disabled={currentSets.length === 0}
-              className="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Save Workout
-            </button>
-            <button
-              onClick={() => {
-                setShowNewWorkoutForm(false);
-                setCurrentSets([]);
-                setWorkoutNotes("");
-              }}
-              className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-semibold hover:bg-slate-200 transition"
-            >
-              Cancel
-            </button>
+          {/* Notes */}
+          <div className="mb-6">
+            <label className="block text-sm font-bold text-zinc-400 mb-2">
+              NOTES (OPTIONAL)
+            </label>
+            <textarea
+              value={workoutNotes}
+              onChange={(e) => setWorkoutNotes(e.target.value)}
+              placeholder="Any notes about this workout..."
+              rows={3}
+              className="w-full px-4 py-3 bg-zinc-800 border-2 border-zinc-700 text-white font-bold focus:outline-none focus:border-blue-600"
+            />
           </div>
+
+          <button
+            onClick={saveWorkout}
+            disabled={currentSets.length === 0}
+            className="px-8 py-4 bg-blue-600 text-white font-black hover:bg-blue-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            SAVE WORKOUT
+          </button>
         </div>
       )}
 
-      {/* Workout History */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-        <h2 className="text-2xl font-bold text-slate-900 mb-6">
-          Recent Workouts
-        </h2>
+      {/* Recent Workouts */}
+      <div className="bg-zinc-900 border-2 border-zinc-800 p-8">
+        <h2 className="text-3xl font-black text-white mb-8">RECENT WORKOUTS</h2>
 
         {workoutList.length === 0 ? (
           <div className="text-center py-12">
-            <div className="text-6xl mb-4">💪</div>
-            <p className="text-slate-600 text-lg">No workouts yet</p>
-            <p className="text-slate-500 text-sm mt-2">
-              Create your first workout to get started!
+            <p className="text-zinc-400 text-lg font-bold">NO WORKOUTS YET</p>
+            <p className="text-zinc-500 text-sm mt-2 font-medium">
+              Click "+ New Workout" above to log your first workout
             </p>
           </div>
         ) : (
@@ -318,40 +357,69 @@ export default function Workouts() {
             {workoutList.map((workout) => (
               <div
                 key={workout.id}
-                className="p-5 bg-gradient-to-r from-slate-50 to-slate-50/50 border border-slate-200 rounded-xl"
+                className="bg-zinc-800 border-2 border-zinc-700 p-6"
               >
-                <div className="flex justify-between items-start mb-3">
+                <div className="flex justify-between items-start mb-4">
                   <div>
-                    <p className="font-bold text-slate-900 text-lg">
-                      {workout.notes || "Workout"}
+                    {workout.name && (
+                      <h3 className="text-2xl font-black text-blue-500 mb-1">
+                        {workout.name.toUpperCase()}
+                      </h3>
+                    )}
+                    <p className="font-black text-white text-lg">
+                      {formatDate(workout.date)}
                     </p>
-                    <p className="text-sm text-slate-600 mt-1">
-                      {formatDate(workout.date)} • {workout.sets.length} sets
-                    </p>
+                    {workout.notes && (
+                      <p className="text-sm text-zinc-400 mt-1 font-medium">{workout.notes}</p>
+                    )}
                   </div>
+                  <button
+                    onClick={() => setDeleteConfirm(workout.id)}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold transition"
+                  >
+                    DELETE
+                  </button>
                 </div>
 
-                {workout.sets.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    {workout.sets.map((set, idx) => (
-                      <div
-                        key={set.id || idx}
-                        className="flex items-center text-sm"
+                {/* Delete Confirmation Popup */}
+                {deleteConfirm === workout.id && (
+                  <div className="mb-4 bg-red-900 border-2 border-red-600 p-4">
+                    <p className="text-white font-bold mb-4">
+                      DELETE THIS WORKOUT? THIS CANNOT BE UNDONE.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => deleteWorkout(workout.id)}
+                        className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-black"
                       >
-                        <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-medium mr-3">
-                          {idx + 1}
-                        </span>
-                        <span className="font-medium text-slate-900 min-w-[200px]">
-                          {getExerciseName(set.exercise_id)}
-                        </span>
-                        <span className="text-slate-600">
-                          {set.weight}kg × {set.reps} reps
-                          {set.rpe && ` @ RPE ${set.rpe}`}
-                        </span>
-                      </div>
-                    ))}
+                        YES, DELETE
+                      </button>
+                      <button
+                        onClick={() => setDeleteConfirm(null)}
+                        className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white font-black"
+                      >
+                        CANCEL
+                      </button>
+                    </div>
                   </div>
                 )}
+
+                <div className="space-y-2">
+                  {workout.sets.map((set, setIndex) => (
+                    <div
+                      key={setIndex}
+                      className="flex justify-between items-center py-2 border-b border-zinc-700 last:border-0"
+                    >
+                      <span className="font-bold text-white min-w-[200px]">
+                        {getExerciseName(set.exercise_id)}
+                      </span>
+                      <span className="text-zinc-400 font-bold">
+                        {set.weight}kg × {set.reps} reps
+                        {set.rpe && ` @ RPE ${set.rpe}`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>

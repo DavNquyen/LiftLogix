@@ -19,13 +19,9 @@ export default function Login() {
     setLoading(true);
 
     try {
-      // Call login from AuthContext (which calls the API)
       await login(email, password);
-
-      // Redirect to dashboard on successful login
       router.push("/dashboard");
     } catch (err: any) {
-      // Display error message from API or generic message
       setError(err.message || "Invalid email or password");
     } finally {
       setLoading(false);
@@ -33,51 +29,51 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-black p-4">
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8">
+        <div className="bg-zinc-900 border-2 border-zinc-800 p-8">
           <div className="mb-8">
             <Link href="/" className="inline-block mb-6">
-              <span className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                LiftLogix
+              <span className="text-2xl font-black tracking-tight text-white">
+                LIFT<span className="text-blue-500">LOGIX</span>
               </span>
             </Link>
-            <h2 className="text-3xl font-bold text-slate-900">Welcome back</h2>
-            <p className="text-slate-600 mt-2">Sign in to continue your fitness journey</p>
+            <h2 className="text-4xl font-black text-white">WELCOME BACK</h2>
+            <p className="text-zinc-400 mt-2 font-medium">Sign in to continue your fitness journey</p>
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6">
+            <div className="bg-red-900 border-2 border-red-600 text-red-100 px-4 py-3 mb-6 font-bold">
               {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label htmlFor="email" className="block text-sm font-semibold text-slate-700 mb-2">
-                Email Address
+              <label htmlFor="email" className="block text-sm font-bold text-zinc-400 mb-2">
+                EMAIL ADDRESS
               </label>
               <input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-slate-900"
+                className="w-full px-4 py-3 bg-zinc-800 border-2 border-zinc-700 text-white font-bold focus:outline-none focus:border-blue-600 transition-all"
                 placeholder="you@example.com"
                 required
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-slate-700 mb-2">
-                Password
+              <label htmlFor="password" className="block text-sm font-bold text-zinc-400 mb-2">
+                PASSWORD
               </label>
               <input
                 id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-slate-900"
+                className="w-full px-4 py-3 bg-zinc-800 border-2 border-zinc-700 text-white font-bold focus:outline-none focus:border-blue-600 transition-all"
                 placeholder="••••••••"
                 required
               />
@@ -86,15 +82,15 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3.5 rounded-xl font-semibold hover:shadow-lg hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+              className="w-full bg-blue-600 text-white py-4 font-black hover:bg-blue-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? "Signing in..." : "Sign In"}
+              {loading ? "SIGNING IN..." : "SIGN IN"}
             </button>
           </form>
 
-          <p className="mt-6 text-center text-slate-600">
+          <p className="mt-6 text-center text-zinc-400 font-medium">
             Don't have an account?{" "}
-            <Link href="/register" className="text-indigo-600 font-semibold hover:text-indigo-700 transition-colors">
+            <Link href="/register" className="text-orange-500 font-bold hover:text-orange-400 transition-colors">
               Sign up free
             </Link>
           </p>

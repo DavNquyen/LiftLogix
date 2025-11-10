@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List
+from datetime import datetime, timedelta
 from .db import get_db
 from .models import User, Exercise, Workout, Set, Meal
 from .schemas import (
@@ -128,6 +130,7 @@ def create_workout(
     """Create a new workout with sets"""
     db_workout = Workout(
         user_id=current_user.id,
+        name=workout.name,
         notes=workout.notes
     )
     db.add(db_workout)
@@ -178,6 +181,31 @@ def add_set_to_workout(
     return db_set
 
 
+@router.delete("/workouts/{workout_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_workout(
+    workout_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Delete a workout"""
+    # Verify workout exists and belongs to user
+    workout = db.query(Workout).filter(
+        Workout.id == workout_id,
+        Workout.user_id == current_user.id
+    ).first()
+
+    if not workout:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Workout not found"
+        )
+
+    # Delete the workout (sets will be cascade deleted)
+    db.delete(workout)
+    db.commit()
+    return None
+
+
 # Meal Routes
 @router.get("/meals", response_model=List[MealResponse])
 def get_meals(
@@ -208,3 +236,126 @@ def create_meal(
     db.commit()
     db.refresh(db_meal)
     return db_meal
+
+
+@router.delete("/meals/{meal_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_meal(
+    meal_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Delete a meal"""
+    # Verify meal exists and belongs to user
+    meal = db.query(Meal).filter(
+        Meal.id == meal_id,
+        Meal.user_id == current_user.id
+    ).first()
+
+    if not meal:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Meal not found"
+        )
+
+    db.delete(meal)
+    db.commit()
+    return None
+
+
+# Dashboard Stats
+@router.get("/stats/dashboard")
+def get_dashboard_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get dashboard statistics"""
+    now = datetime.utcnow()
+    week_ago = now - timedelta(days=7)
+
+    # Get all workouts sorted by date descending
+    all_workouts = db.query(Workout).filter(
+        Workout.user_id == current_user.id
+    ).order_by(Workout.date.desc()).all()
+
+    # Calculate current streak (consecutive days with workouts)
+    streak = 0
+    if all_workouts:
+        workout_dates = set()
+        for workout in all_workouts:
+            workout_date = workout.date.date() if isinstance(workout.date, datetime) else workout.date
+            workout_dates.add(workout_date)
+
+        # Check backwards from today
+        current_date = now.date()
+        while current_date in workout_dates:
+            streak += 1
+            current_date -= timedelta(days=1)
+
+    # Workouts this week
+    workouts_this_week = db.query(Workout).filter(
+        Workout.user_id == current_user.id,
+        Workout.date >= week_ago
+    ).count()
+
+    # Total volume this week (sum of weight × reps)
+    volume_result = db.query(
+        func.sum(Set.weight * Set.reps)
+    ).join(Workout).filter(
+        Workout.user_id == current_user.id,
+        Workout.date >= week_ago
+    ).scalar()
+
+    total_volume = float(volume_result) if volume_result else 0.0
+
+    return {
+        "current_streak": streak,
+        "workouts_this_week": workouts_this_week,
+        "total_volume": round(total_volume, 1),
+        "weekly_goal": 5  # Default goal
+    }
+
+
+@router.get("/stats/analytics")
+def get_analytics_data(
+    days: int = 30,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get analytics data for charts (volume over time, workout frequency)"""
+    now = datetime.utcnow()
+    start_date = now - timedelta(days=days)
+
+    # Get all workouts in the time range
+    workouts = db.query(Workout).filter(
+        Workout.user_id == current_user.id,
+        Workout.date >= start_date
+    ).order_by(Workout.date.asc()).all()
+
+    # Calculate daily volume and workout count
+    daily_data = {}
+    for workout in workouts:
+        workout_date = workout.date.date() if isinstance(workout.date, datetime) else workout.date
+        date_str = workout_date.strftime("%Y-%m-%d")
+
+        if date_str not in daily_data:
+            daily_data[date_str] = {
+                "date": date_str,
+                "volume": 0.0,
+                "workouts": 0
+            }
+
+        # Calculate volume for this workout
+        sets = db.query(Set).filter(Set.workout_id == workout.id).all()
+        workout_volume = sum(s.weight * s.reps for s in sets)
+
+        daily_data[date_str]["volume"] += workout_volume
+        daily_data[date_str]["workouts"] += 1
+
+    # Convert to list sorted by date
+    analytics_data = sorted(daily_data.values(), key=lambda x: x["date"])
+
+    return {
+        "data": analytics_data,
+        "total_workouts": len(workouts),
+        "total_volume": sum(d["volume"] for d in analytics_data)
+    }

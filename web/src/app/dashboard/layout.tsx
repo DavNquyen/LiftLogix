@@ -23,10 +23,10 @@ export default function DashboardLayout({
   // Show loading state while checking authentication
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
           <div className="text-4xl mb-4">⏳</div>
-          <p className="text-gray-600">Loading...</p>
+          <p className="text-zinc-400">Loading...</p>
         </div>
       </div>
     );
@@ -40,7 +40,7 @@ export default function DashboardLayout({
 
   // User is authenticated, render dashboard
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-black">
       <DashboardNav />
       <main className="container mx-auto px-6 py-8">
         {children}

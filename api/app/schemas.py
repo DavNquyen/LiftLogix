@@ -81,6 +81,7 @@ class SetResponse(SetBase):
 
 # Workout Schemas
 class WorkoutBase(BaseModel):
+    name: Optional[str] = None
     notes: Optional[str] = None
 
 

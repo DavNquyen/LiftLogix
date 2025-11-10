@@ -1,29 +1,50 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Profile() {
-  const [name, setName] = useState("John Doe");
-  const [email, setEmail] = useState("john@example.com");
-  const [height, setHeight] = useState("175");
-  const [weight, setWeight] = useState("75");
+  const { user } = useAuth();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [height, setHeight] = useState("");
+  const [weight, setWeight] = useState("");
   const [units, setUnits] = useState("metric");
+
+  useEffect(() => {
+    if (user) {
+      setName(user.name || "");
+      setEmail(user.email || "");
+      setHeight(user.height_cm?.toString() || "");
+      setWeight(user.weight_kg?.toString() || "");
+      setUnits(user.units || "metric");
+    }
+  }, [user]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // TODO: Implement actual update logic
     console.log("Profile update:", { name, email, height, weight, units });
+    alert("Profile update feature coming soon!");
   };
+
+  if (!user) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <p className="text-slate-600">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <h1 className="text-3xl font-bold text-gray-800">Profile Settings</h1>
+      <h1 className="text-3xl font-bold text-slate-900">Profile Settings</h1>
 
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-6">Personal Information</h2>
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+        <h2 className="text-xl font-semibold text-slate-900 mb-6">Personal Information</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="name" className="block text-sm font-medium text-slate-700 mb-2">
               Full Name
             </label>
             <input
@@ -31,12 +52,12 @@ export default function Profile() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-2">
               Email
             </label>
             <input
@@ -44,13 +65,15 @@ export default function Profile() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              disabled
             />
+            <p className="text-sm text-slate-500 mt-1">Email cannot be changed</p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="height" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="height" className="block text-sm font-medium text-slate-700 mb-2">
                 Height (cm)
               </label>
               <input
@@ -58,12 +81,13 @@ export default function Profile() {
                 type="number"
                 value={height}
                 onChange={(e) => setHeight(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="175"
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               />
             </div>
 
             <div>
-              <label htmlFor="weight" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="weight" className="block text-sm font-medium text-slate-700 mb-2">
                 Weight (kg)
               </label>
               <input
@@ -71,20 +95,21 @@ export default function Profile() {
                 type="number"
                 value={weight}
                 onChange={(e) => setWeight(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="75"
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               />
             </div>
           </div>
 
           <div>
-            <label htmlFor="units" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="units" className="block text-sm font-medium text-slate-700 mb-2">
               Units
             </label>
             <select
               id="units"
               value={units}
               onChange={(e) => setUnits(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             >
               <option value="metric">Metric (kg, cm)</option>
               <option value="imperial">Imperial (lbs, in)</option>
@@ -93,29 +118,11 @@ export default function Profile() {
 
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
+            className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all"
           >
             Save Changes
           </button>
         </form>
-      </div>
-
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Goals</h2>
-        <div className="space-y-3">
-          <div className="p-4 bg-gray-50 rounded-lg">
-            <p className="font-semibold text-gray-800">Daily Calories</p>
-            <p className="text-sm text-gray-600 mt-1">2,500 kcal</p>
-          </div>
-          <div className="p-4 bg-gray-50 rounded-lg">
-            <p className="font-semibold text-gray-800">Protein Target</p>
-            <p className="text-sm text-gray-600 mt-1">180g per day</p>
-          </div>
-          <div className="p-4 bg-gray-50 rounded-lg">
-            <p className="font-semibold text-gray-800">Workout Frequency</p>
-            <p className="text-sm text-gray-600 mt-1">5 times per week</p>
-          </div>
-        </div>
       </div>
     </div>
   );

@@ -1,103 +1,126 @@
 "use client";
 
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { stats } from "@/lib/api";
+
+interface DashboardStats {
+  current_streak: number;
+  workouts_this_week: number;
+  total_volume: number;
+  weekly_goal: number;
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const router = useRouter();
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadStats();
+  }, []);
+
+  const loadStats = async () => {
+    try {
+      setLoading(true);
+      const data = await stats.dashboard();
+      setDashboardStats(data);
+    } catch (err) {
+      console.error("Failed to load stats:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatVolume = (volume: number) => {
+    if (volume >= 1000) {
+      return `${(volume / 1000).toFixed(1)}k`;
+    }
+    return volume.toFixed(0);
+  };
 
   return (
     <div className="space-y-8">
       {/* Welcome Section */}
       <div>
-        <h1 className="text-4xl font-bold text-slate-900">
-          Welcome back, {user?.name}!
+        <h1 className="text-5xl font-black text-white tracking-tight">
+          WELCOME BACK, {user?.name?.toUpperCase()}
         </h1>
-        <p className="text-slate-600 mt-2 text-lg">Here's your fitness overview for today</p>
+        <p className="text-zinc-400 mt-3 text-lg font-medium">Ready to make gains?</p>
       </div>
 
       {/* Stats Grid */}
       <div className="grid md:grid-cols-3 gap-6">
-        <div className="bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl p-6 text-white shadow-lg hover:shadow-xl transition-shadow">
+        <div className="bg-zinc-900 border-2 border-zinc-800 hover:border-blue-600 p-8 transition-all duration-300">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-orange-100 text-sm font-medium">Current Streak</p>
-              <p className="text-5xl font-bold mt-2">7</p>
-              <p className="text-orange-100 text-sm mt-1">days</p>
+              <p className="text-zinc-500 text-sm font-bold tracking-wide mb-2">CURRENT STREAK</p>
+              <p className="text-6xl font-black text-blue-500">
+                {loading ? "..." : dashboardStats?.current_streak || 0}
+              </p>
+              <p className="text-zinc-500 text-sm mt-2 font-bold">DAYS</p>
             </div>
-            <div className="text-6xl opacity-80">🔥</div>
+            <div className="text-7xl opacity-60">🔥</div>
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-indigo-500 to-purple-500 rounded-2xl p-6 text-white shadow-lg hover:shadow-xl transition-shadow">
+        <div className="bg-zinc-900 border-2 border-zinc-800 hover:border-orange-600 p-8 transition-all duration-300">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-indigo-100 text-sm font-medium">Workouts This Week</p>
-              <p className="text-5xl font-bold mt-2">4/5</p>
-              <p className="text-indigo-100 text-sm mt-1">completed</p>
+              <p className="text-zinc-500 text-sm font-bold tracking-wide mb-2">THIS WEEK</p>
+              <p className="text-6xl font-black text-orange-500">
+                {loading ? "..." : `${dashboardStats?.workouts_this_week || 0}/${dashboardStats?.weekly_goal || 5}`}
+              </p>
+              <p className="text-zinc-500 text-sm mt-2 font-bold">WORKOUTS</p>
             </div>
-            <div className="text-6xl opacity-80">💪</div>
+            <div className="text-7xl opacity-60">💪</div>
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl p-6 text-white shadow-lg hover:shadow-xl transition-shadow">
+        <div className="bg-zinc-900 border-2 border-zinc-800 hover:border-blue-600 p-8 transition-all duration-300">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-emerald-100 text-sm font-medium">Total Volume</p>
-              <p className="text-5xl font-bold mt-2">1.2k</p>
-              <p className="text-emerald-100 text-sm mt-1">kg lifted</p>
+              <p className="text-zinc-500 text-sm font-bold tracking-wide mb-2">TOTAL VOLUME</p>
+              <p className="text-6xl font-black text-blue-500">
+                {loading ? "..." : formatVolume(dashboardStats?.total_volume || 0)}
+              </p>
+              <p className="text-zinc-500 text-sm mt-2 font-bold">KG LIFTED</p>
             </div>
-            <div className="text-6xl opacity-80">📊</div>
+            <div className="text-7xl opacity-60">📊</div>
           </div>
         </div>
       </div>
 
       {/* Quick Actions */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-        <h2 className="text-2xl font-bold text-slate-900 mb-6">Quick Actions</h2>
+      <div className="bg-zinc-900 border-2 border-zinc-800 p-8">
+        <h2 className="text-3xl font-black text-white mb-8">QUICK ACTIONS</h2>
         <div className="grid md:grid-cols-2 gap-4">
-          <button className="p-6 bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200 text-indigo-700 rounded-xl font-semibold hover:shadow-md hover:scale-[1.02] transition-all duration-200 text-left">
-            <div className="flex items-center gap-3">
-              <span className="text-3xl">💪</span>
+          <button
+            onClick={() => router.push("/dashboard/workouts")}
+            className="p-8 bg-zinc-800 border-2 border-zinc-700 hover:border-blue-600 text-white font-black hover:bg-zinc-700 transition-all duration-200 text-left"
+          >
+            <div className="flex items-center gap-4">
+              <span className="text-5xl">💪</span>
               <div>
-                <div className="font-bold">Log Workout</div>
-                <div className="text-sm text-indigo-600">Track your training</div>
+                <div className="text-xl mb-1">LOG WORKOUT</div>
+                <div className="text-sm text-zinc-500 font-medium">Track your training</div>
               </div>
             </div>
           </button>
-          <button className="p-6 bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-200 text-emerald-700 rounded-xl font-semibold hover:shadow-md hover:scale-[1.02] transition-all duration-200 text-left">
-            <div className="flex items-center gap-3">
-              <span className="text-3xl">🍽️</span>
+          <button
+            onClick={() => router.push("/dashboard/meals")}
+            className="p-8 bg-zinc-800 border-2 border-zinc-700 hover:border-orange-600 text-white font-black hover:bg-zinc-700 transition-all duration-200 text-left"
+          >
+            <div className="flex items-center gap-4">
+              <span className="text-5xl">🍽️</span>
               <div>
-                <div className="font-bold">Log Meal</div>
-                <div className="text-sm text-emerald-600">Track your nutrition</div>
+                <div className="text-xl mb-1">LOG MEAL</div>
+                <div className="text-sm text-zinc-500 font-medium">Track your nutrition</div>
               </div>
             </div>
           </button>
-        </div>
-      </div>
-
-      {/* Today's Plan */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-        <h2 className="text-2xl font-bold text-slate-900 mb-6">Today's Plan</h2>
-        <div className="space-y-4">
-          <div className="p-5 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100 rounded-xl">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="font-bold text-slate-900 text-lg">Push Day A</p>
-                <p className="text-slate-600 mt-1">5 exercises • 60 min</p>
-              </div>
-              <span className="text-2xl">💪</span>
-            </div>
-          </div>
-          <div className="p-5 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 rounded-xl">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="font-bold text-slate-900 text-lg">Nutrition Goal</p>
-                <p className="text-slate-600 mt-1">2,500 kcal • 180g protein</p>
-              </div>
-              <span className="text-2xl">🎯</span>
-            </div>
-          </div>
         </div>
       </div>
     </div>

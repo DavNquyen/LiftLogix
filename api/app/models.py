@@ -43,6 +43,7 @@ class Workout(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     plan_id = Column(Integer, ForeignKey("plans.id"), nullable=True)
     date = Column(DateTime, default=datetime.utcnow)
+    name = Column(String, nullable=True)  # e.g., "Push Day", "Pull Day", "Leg Day"
     notes = Column(Text, nullable=True)
 
     # Relationships

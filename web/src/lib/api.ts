@@ -34,6 +34,11 @@ async function fetchApi<T>(
     throw new ApiError(response.status, error.detail || "Request failed");
   }
 
+  // Handle 204 No Content responses (e.g., DELETE)
+  if (response.status === 204 || response.headers.get("content-length") === "0") {
+    return null as T;
+  }
+
   return response.json();
 }
 
@@ -111,6 +116,7 @@ export const workouts = {
       id: number;
       user_id: number;
       date: string;
+      name?: string;
       notes?: string;
       sets: Array<{
         id: number;
@@ -123,6 +129,7 @@ export const workouts = {
   },
 
   async create(data: {
+    name?: string;
     notes?: string;
     sets: Array<{
       exercise_id: number;
@@ -146,6 +153,12 @@ export const workouts = {
     return fetchApi(`/workouts/${workoutId}/sets`, {
       method: "POST",
       body: JSON.stringify(setData),
+    });
+  },
+
+  async delete(workoutId: number) {
+    return fetchApi(`/workouts/${workoutId}`, {
+      method: "DELETE",
     });
   },
 };
@@ -178,5 +191,35 @@ export const meals = {
       method: "POST",
       body: JSON.stringify(data),
     });
+  },
+
+  async delete(mealId: number) {
+    return fetchApi(`/meals/${mealId}`, {
+      method: "DELETE",
+    });
+  },
+};
+
+// Stats API
+export const stats = {
+  async dashboard() {
+    return fetchApi<{
+      current_streak: number;
+      workouts_this_week: number;
+      total_volume: number;
+      weekly_goal: number;
+    }>("/stats/dashboard");
+  },
+
+  async analytics(days: number = 30) {
+    return fetchApi<{
+      data: Array<{
+        date: string;
+        volume: number;
+        workouts: number;
+      }>;
+      total_workouts: number;
+      total_volume: number;
+    }>(`/stats/analytics?days=${days}`);
   },
 };
