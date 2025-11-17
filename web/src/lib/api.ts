@@ -282,3 +282,65 @@ export const bodyWeight = {
     });
   },
 };
+
+// Workout Templates API
+export const templates = {
+  async list() {
+    return fetchApi<Array<{
+      id: number;
+      name: string;
+      notes?: string;
+      exercises: Array<{
+        exercise_id: number;
+        sets: number;
+        reps: number;
+      }>;
+      created_at: string;
+    }>>("/workout-templates");
+  },
+
+  async create(data: {
+    name: string;
+    notes?: string;
+    exercises: Array<{
+      exercise_id: number;
+      sets: number;
+      reps: number;
+    }>;
+  }) {
+    return fetchApi<{
+      id: number;
+      name: string;
+      notes?: string;
+      exercises: Array<{
+        exercise_id: number;
+        sets: number;
+        reps: number;
+      }>;
+      created_at: string;
+    }>("/workout-templates", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async get(id: number) {
+    return fetchApi<{
+      id: number;
+      name: string;
+      notes?: string;
+      exercises: Array<{
+        exercise_id: number;
+        sets: number;
+        reps: number;
+      }>;
+      created_at: string;
+    }>(`/workout-templates/${id}`);
+  },
+
+  async delete(id: number) {
+    return fetchApi(`/workout-templates/${id}`, {
+      method: "DELETE",
+    });
+  },
+};

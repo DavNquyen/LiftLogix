@@ -22,6 +22,7 @@ class User(Base):
     meals = relationship("Meal", back_populates="user")
     plans = relationship("Plan", back_populates="user")
     body_weights = relationship("BodyWeight", back_populates="user")
+    workout_templates = relationship("WorkoutTemplate", back_populates="user")
 
 
 class Exercise(Base):
@@ -131,3 +132,15 @@ class FoodFavorite(Base):
     brand = Column(String, nullable=True)
     upc = Column(String, nullable=True)
     macros_json = Column(JSON, nullable=False)
+
+class WorkoutTemplate(Base):
+    __tablename__ = "workout_templates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    exercises_json = Column(JSON, nullable=False, default=list)  # List of exercises with sets/reps/weights
+
+    # Relationships
+    user = relationship("User", back_populates="workout_templates")

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { exercises, workouts } from "@/lib/api";
+import { useRouter, useSearchParams } from "next/navigation";
+import { exercises, workouts, templates } from "@/lib/api";
 
 interface Exercise {
   id: number;
@@ -27,6 +28,20 @@ interface Workout {
   sets: Set[];
 }
 
+interface TemplateExercise {
+  exercise_id: number;
+  sets: number;
+  reps: number;
+}
+
+interface WorkoutTemplate {
+  id: number;
+  name: string;
+  notes?: string;
+  created_at: string;
+  exercises: TemplateExercise[];
+}
+
 export default function Workouts() {
   const [exerciseList, setExerciseList] = useState<Exercise[]>([]);
   const [workoutList, setWorkoutList] = useState<Workout[]>([]);
@@ -44,12 +59,26 @@ export default function Workouts() {
   const [rpe, setRpe] = useState("");
   const [weightUnit, setWeightUnit] = useState<"kg" | "lb">("kg");
 
-  //Delete confirmation
+  // Delete confirmation
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     loadData();
   }, []);
+
+  // When there's a templateId in the query, load it into the form
+  useEffect(() => {
+    const templateIdParam = searchParams.get("templateId");
+    if (!templateIdParam) return;
+
+    const id = Number(templateIdParam);
+    if (Number.isNaN(id)) return;
+
+    loadTemplateIntoForm(id);
+  }, [searchParams]);
 
   const loadData = async () => {
     try {
@@ -66,6 +95,38 @@ export default function Workouts() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadTemplateIntoForm = async (templateId: number) => {
+    try {
+      setError(null);
+      const tpl = (await templates.get(templateId)) as WorkoutTemplate;
+
+      // Open the new workout form
+      setShowNewWorkoutForm(true);
+
+      // Fill in name/notes from template
+      setWorkoutName(tpl.name);
+      setWorkoutNotes(tpl.notes || "");
+
+      // Build sets from template exercises:
+      // For each { exercise_id, sets, reps }, create "sets" rows with weight 0
+      const generatedSets: Set[] = [];
+      tpl.exercises.forEach((te) => {
+        for (let i = 0; i < te.sets; i++) {
+          generatedSets.push({
+            exercise_id: te.exercise_id,
+            weight: 0,
+            reps: te.reps,
+          });
+        }
+      });
+
+      setCurrentSets(generatedSets);
+    } catch (err) {
+      console.error("Failed to load template:", err);
+      setError("Failed to load template into workout form");
     }
   };
 
@@ -158,12 +219,20 @@ export default function Workouts() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <h1 className="text-5xl font-black text-white">WORKOUTS</h1>
-        <button
-          onClick={() => setShowNewWorkoutForm(!showNewWorkoutForm)}
-          className="px-6 py-3 bg-blue-600 text-white font-black hover:bg-blue-500 transition-all"
-        >
-          {showNewWorkoutForm ? "CANCEL" : "+ NEW WORKOUT"}
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => router.push("/dashboard/templates")}
+            className="px-6 py-3 bg-zinc-800 border border-zinc-600 text-white font-black hover:bg-zinc-700 transition-all"
+          >
+            LOAD TEMPLATE
+          </button>
+          <button
+            onClick={() => setShowNewWorkoutForm(!showNewWorkoutForm)}
+            className="px-6 py-3 bg-blue-600 text-white font-black hover:bg-blue-500 transition-all"
+          >
+            {showNewWorkoutForm ? "CANCEL" : "+ NEW WORKOUT"}
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -198,13 +267,18 @@ export default function Workouts() {
             </label>
             <select
               value={selectedExerciseId}
-              onChange={(e) => setSelectedExerciseId(e.target.value === "" ? "" : Number(e.target.value))}
+              onChange={(e) =>
+                setSelectedExerciseId(
+                  e.target.value === "" ? "" : Number(e.target.value)
+                )
+              }
               className="w-full px-4 py-3 bg-zinc-800 border-2 border-zinc-700 text-white font-bold focus:outline-none focus:border-blue-600"
             >
               <option value="">Choose an exercise...</option>
               {exerciseList.map((exercise) => (
                 <option key={exercise.id} value={exercise.id}>
-                  {exercise.name} {exercise.muscle_group && `(${exercise.muscle_group})`}
+                  {exercise.name}{" "}
+                  {exercise.muscle_group && `(${exercise.muscle_group})`}
                 </option>
               ))}
             </select>
@@ -289,7 +363,9 @@ export default function Workouts() {
           {/* Current Sets */}
           {currentSets.length > 0 && (
             <div className="mb-6">
-              <h3 className="text-lg font-black text-white mb-4">SETS FOR THIS WORKOUT:</h3>
+              <h3 className="text-lg font-black text-white mb-4">
+                SETS FOR THIS WORKOUT:
+              </h3>
               <div className="space-y-2">
                 {currentSets.map((set, index) => (
                   <div
@@ -301,7 +377,8 @@ export default function Workouts() {
                         {getExerciseName(set.exercise_id)}
                       </span>
                       <span className="text-zinc-400 font-bold">
-                        {set.weight}{weightUnit} × {set.reps} reps
+                        {set.weight}
+                        {weightUnit} × {set.reps} reps
                         {set.rpe && ` @ RPE ${set.rpe}`}
                       </span>
                     </div>
@@ -349,7 +426,8 @@ export default function Workouts() {
           <div className="text-center py-12">
             <p className="text-zinc-400 text-lg font-bold">NO WORKOUTS YET</p>
             <p className="text-zinc-500 text-sm mt-2 font-medium">
-              Click "+ New Workout" above to log your first workout
+              Click "+ New Workout" above or load a template to log your first
+              workout
             </p>
           </div>
         ) : (
@@ -370,7 +448,9 @@ export default function Workouts() {
                       {formatDate(workout.date)}
                     </p>
                     {workout.notes && (
-                      <p className="text-sm text-zinc-400 mt-1 font-medium">{workout.notes}</p>
+                      <p className="text-sm text-zinc-400 mt-1 font-medium">
+                        {workout.notes}
+                      </p>
                     )}
                   </div>
                   <button

@@ -4,7 +4,7 @@ from sqlalchemy import func
 from typing import List
 from datetime import datetime, timedelta
 from .db import get_db
-from .models import User, Exercise, Workout, Set, Meal, BodyWeight
+from .models import User, Exercise, Workout, Set, Meal, BodyWeight, WorkoutTemplate
 from .schemas import (
     UserCreate, UserLogin, UserResponse, UserUpdate, Token,
     ExerciseCreate, ExerciseResponse,
@@ -12,7 +12,8 @@ from .schemas import (
     SetCreate, SetResponse,
     MealCreate, MealResponse,
     BodyWeightCreate, BodyWeightResponse,
-    PersonalRecordResponse
+    PersonalRecordResponse,
+    WorkoutTemplateCreate, WorkoutTemplateUpdate, WorkoutTemplateResponse, TemplateExercise
 )
 from .auth import (
     get_password_hash, authenticate_user,
@@ -224,6 +225,178 @@ def delete_workout(
     db.commit()
     return None
 
+# Workout Template Routes
+@router.get("/workout-templates", response_model=List[WorkoutTemplateResponse])
+def get_workout_templates(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get user's workout templates"""
+    templates = (
+        db.query(WorkoutTemplate)
+        .filter(WorkoutTemplate.user_id == current_user.id)
+        .order_by(WorkoutTemplate.created_at.desc())
+        .all()
+    )
+
+    responses: List[WorkoutTemplateResponse] = []
+    for t in templates:
+        exercises_raw = t.exercises_json or []
+        exercises = [TemplateExercise(**e) for e in exercises_raw]
+
+        responses.append(
+            WorkoutTemplateResponse(
+                id=t.id,
+                name=t.name,
+                notes=t.notes,
+                created_at=t.created_at,
+                exercises=exercises,
+            )
+        )
+    return responses
+
+
+@router.post(
+    "/workout-templates",
+    response_model=WorkoutTemplateResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_workout_template(
+    template_in: WorkoutTemplateCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Create a new workout template"""
+    db_template = WorkoutTemplate(
+        user_id=current_user.id,
+        name=template_in.name,
+        notes=template_in.notes,
+        exercises_json=[e.model_dump() for e in template_in.exercises],
+    )
+
+    db.add(db_template)
+    db.commit()
+    db.refresh(db_template)
+
+    return WorkoutTemplateResponse(
+        id=db_template.id,
+        name=db_template.name,
+        notes=db_template.notes,
+        created_at=db_template.created_at,
+        exercises=template_in.exercises,
+    )
+
+
+@router.get(
+    "/workout-templates/{template_id}",
+    response_model=WorkoutTemplateResponse,
+)
+def get_workout_template(
+    template_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get a single workout template"""
+    template = (
+        db.query(WorkoutTemplate)
+        .filter(
+            WorkoutTemplate.id == template_id,
+            WorkoutTemplate.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not template:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Template not found",
+        )
+
+    exercises_raw = template.exercises_json or []
+    exercises = [TemplateExercise(**e) for e in exercises_raw]
+
+    return WorkoutTemplateResponse(
+        id=template.id,
+        name=template.name,
+        notes=template.notes,
+        created_at=template.created_at,
+        exercises=exercises,
+    )
+
+
+@router.put(
+    "/workout-templates/{template_id}",
+    response_model=WorkoutTemplateResponse,
+)
+def update_workout_template(
+    template_id: int,
+    template_in: WorkoutTemplateUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update an existing workout template"""
+    template = (
+        db.query(WorkoutTemplate)
+        .filter(
+            WorkoutTemplate.id == template_id,
+            WorkoutTemplate.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not template:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Template not found",
+        )
+
+    template.name = template_in.name
+    template.notes = template_in.notes
+    template.exercises_json = [e.model_dump() for e in template_in.exercises]
+
+    db.commit()
+    db.refresh(template)
+
+    exercises_raw = template.exercises_json or []
+    exercises = [TemplateExercise(**e) for e in exercises_raw]
+
+    return WorkoutTemplateResponse(
+        id=template.id,
+        name=template.name,
+        notes=template.notes,
+        created_at=template.created_at,
+        exercises=exercises,
+    )
+
+
+@router.delete(
+    "/workout-templates/{template_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_workout_template(
+    template_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete a workout template"""
+    template = (
+        db.query(WorkoutTemplate)
+        .filter(
+            WorkoutTemplate.id == template_id,
+            WorkoutTemplate.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not template:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Template not found",
+        )
+
+    db.delete(template)
+    db.commit()
+    return None
 
 # Meal Routes
 @router.get("/meals", response_model=List[MealResponse])

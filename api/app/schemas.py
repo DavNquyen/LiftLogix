@@ -176,3 +176,32 @@ class PlanResponse(PlanBase):
 
     class Config:
         from_attributes = True
+        
+# Workout Template Schemas
+
+class TemplateExercise(BaseModel):
+    exercise_id: int
+    sets: int
+    reps: int
+
+class WorkoutTemplateBase(BaseModel):
+    name: str
+    notes: Optional[str] = None
+
+
+class WorkoutTemplateCreate(WorkoutTemplateBase):
+    # list of { exercise_id, sets, reps }
+    exercises: List[TemplateExercise] = []
+
+
+class WorkoutTemplateUpdate(WorkoutTemplateBase):
+    exercises: List[TemplateExercise] = []
+
+
+class WorkoutTemplateResponse(WorkoutTemplateBase):
+    id: int
+    exercises: List[TemplateExercise] = []
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

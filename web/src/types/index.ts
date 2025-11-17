@@ -60,6 +60,20 @@ export interface Plan {
   progression_rules_json?: Record<string, any>;
 }
 
+export interface TemplateExercise {
+  exercise_id: number;
+  sets: number;
+  reps: number;
+}
+
+export interface WorkoutTemplate {
+  id: number;
+  name: string;
+  notes?: string;
+  exercises: TemplateExercise[];
+  created_at: string;
+}
+
 export interface AuthTokens {
   access_token: string;
   refresh_token: string;
