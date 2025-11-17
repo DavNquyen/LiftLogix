@@ -21,6 +21,7 @@ class User(Base):
     workouts = relationship("Workout", back_populates="user")
     meals = relationship("Meal", back_populates="user")
     plans = relationship("Plan", back_populates="user")
+    body_weights = relationship("BodyWeight", back_populates="user")
 
 
 class Exercise(Base):
@@ -90,6 +91,19 @@ class Meal(Base):
 
     # Relationships
     user = relationship("User", back_populates="meals")
+
+
+class BodyWeight(Base):
+    __tablename__ = "body_weights"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    weight_kg = Column(Float, nullable=False)
+    date = Column(DateTime, default=datetime.utcnow)
+    notes = Column(Text, nullable=True)
+
+    # Relationships
+    user = relationship("User", back_populates="body_weights")
 
 
 class Plan(Base):

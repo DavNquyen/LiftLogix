@@ -4,13 +4,15 @@ from sqlalchemy import func
 from typing import List
 from datetime import datetime, timedelta
 from .db import get_db
-from .models import User, Exercise, Workout, Set, Meal
+from .models import User, Exercise, Workout, Set, Meal, BodyWeight
 from .schemas import (
-    UserCreate, UserLogin, UserResponse, Token,
+    UserCreate, UserLogin, UserResponse, UserUpdate, Token,
     ExerciseCreate, ExerciseResponse,
     WorkoutCreate, WorkoutResponse,
     SetCreate, SetResponse,
-    MealCreate, MealResponse
+    MealCreate, MealResponse,
+    BodyWeightCreate, BodyWeightResponse,
+    PersonalRecordResponse
 )
 from .auth import (
     get_password_hash, authenticate_user,
@@ -70,6 +72,23 @@ def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
 @router.get("/auth/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):
     """Get current user"""
+    return current_user
+
+
+@router.patch("/auth/profile", response_model=UserResponse)
+async def update_profile(
+    profile_update: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update user profile"""
+    update_data = profile_update.model_dump(exclude_unset=True)
+
+    for field, value in update_data.items():
+        setattr(current_user, field, value)
+
+    db.commit()
+    db.refresh(current_user)
     return current_user
 
 
@@ -262,6 +281,62 @@ def delete_meal(
     return None
 
 
+# Body Weight Routes
+@router.get("/body-weight", response_model=List[BodyWeightResponse])
+def get_body_weights(
+    skip: int = 0,
+    limit: int = 90,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get user's body weight entries"""
+    body_weights = db.query(BodyWeight).filter(
+        BodyWeight.user_id == current_user.id
+    ).order_by(BodyWeight.date.desc()).offset(skip).limit(limit).all()
+    return body_weights
+
+
+@router.post("/body-weight", response_model=BodyWeightResponse, status_code=status.HTTP_201_CREATED)
+def create_body_weight(
+    body_weight: BodyWeightCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Log a new body weight entry"""
+    db_body_weight = BodyWeight(
+        user_id=current_user.id,
+        **body_weight.model_dump()
+    )
+    db.add(db_body_weight)
+    db.commit()
+    db.refresh(db_body_weight)
+    return db_body_weight
+
+
+@router.delete("/body-weight/{body_weight_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_body_weight(
+    body_weight_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Delete a body weight entry"""
+    # Verify entry exists and belongs to user
+    body_weight = db.query(BodyWeight).filter(
+        BodyWeight.id == body_weight_id,
+        BodyWeight.user_id == current_user.id
+    ).first()
+
+    if not body_weight:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Body weight entry not found"
+        )
+
+    db.delete(body_weight)
+    db.commit()
+    return None
+
+
 # Dashboard Stats
 @router.get("/stats/dashboard")
 def get_dashboard_stats(
@@ -359,3 +434,42 @@ def get_analytics_data(
         "total_workouts": len(workouts),
         "total_volume": sum(d["volume"] for d in analytics_data)
     }
+
+
+@router.get("/stats/prs", response_model=List[PersonalRecordResponse])
+def get_personal_records(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get personal records (PRs) for each exercise"""
+    # Get all exercises user has logged
+    exercises_with_sets = db.query(Exercise).join(Set).join(Workout).filter(
+        Workout.user_id == current_user.id
+    ).distinct().all()
+
+    prs = []
+    for exercise in exercises_with_sets:
+        # Get all sets for this exercise
+        sets = db.query(Set).join(Workout).filter(
+            Workout.user_id == current_user.id,
+            Set.exercise_id == exercise.id
+        ).all()
+
+        if not sets:
+            continue
+
+        # Calculate PRs
+        max_weight_set = max(sets, key=lambda s: s.weight)
+        max_reps_set = max(sets, key=lambda s: s.reps)
+        max_volume_set = max(sets, key=lambda s: s.weight * s.reps)
+
+        prs.append({
+            "exercise_id": exercise.id,
+            "exercise_name": exercise.name,
+            "max_weight": max_weight_set.weight,
+            "max_reps": max_reps_set.reps,
+            "max_volume": max_volume_set.weight * max_volume_set.reps,
+            "date_achieved": max_weight_set.created_at
+        })
+
+    return prs

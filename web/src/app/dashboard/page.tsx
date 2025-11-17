@@ -12,10 +12,20 @@ interface DashboardStats {
   weekly_goal: number;
 }
 
+interface PersonalRecord {
+  exercise_id: number;
+  exercise_name: string;
+  max_weight: number;
+  max_reps: number;
+  max_volume: number;
+  date_achieved: string;
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const router = useRouter();
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [prs, setPrs] = useState<PersonalRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -25,8 +35,12 @@ export default function Dashboard() {
   const loadStats = async () => {
     try {
       setLoading(true);
-      const data = await stats.dashboard();
-      setDashboardStats(data);
+      const [dashboardData, prsData] = await Promise.all([
+        stats.dashboard(),
+        stats.prs(),
+      ]);
+      setDashboardStats(dashboardData);
+      setPrs(prsData.slice(0, 5)); // Show top 5 PRs
     } catch (err) {
       console.error("Failed to load stats:", err);
     } finally {
@@ -123,6 +137,51 @@ export default function Dashboard() {
           </button>
         </div>
       </div>
+
+      {/* Personal Records Widget */}
+      {prs.length > 0 && (
+        <div className="bg-zinc-900 border-2 border-zinc-800 p-8">
+          <div className="flex justify-between items-center mb-8">
+            <h2 className="text-3xl font-black text-white flex items-center gap-3">
+              <span className="text-4xl">🏆</span>
+              PERSONAL RECORDS
+            </h2>
+            <button
+              onClick={() => router.push("/dashboard/prs")}
+              className="px-6 py-3 bg-blue-600 text-white font-black hover:bg-blue-500 transition text-sm"
+            >
+              VIEW ALL
+            </button>
+          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {prs.map((pr) => (
+              <div
+                key={pr.exercise_id}
+                className="bg-zinc-800 border-2 border-zinc-700 p-5 hover:border-blue-600 transition-all cursor-pointer"
+                onClick={() => router.push("/dashboard/prs")}
+              >
+                <h3 className="text-lg font-black text-white mb-3">
+                  {pr.exercise_name.toUpperCase()}
+                </h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-zinc-400">MAX WEIGHT</span>
+                    <span className="text-xl font-black text-blue-500">{pr.max_weight} KG</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-zinc-400">MAX REPS</span>
+                    <span className="text-xl font-black text-orange-500">{pr.max_reps}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-zinc-400">MAX VOLUME</span>
+                    <span className="text-xl font-black text-blue-500">{Math.round(pr.max_volume)} KG</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

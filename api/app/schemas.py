@@ -30,6 +30,13 @@ class UserResponse(UserBase):
         from_attributes = True
 
 
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    height_cm: Optional[float] = None
+    weight_kg: Optional[float] = None
+    units: Optional[str] = None
+
+
 class Token(BaseModel):
     access_token: str
     refresh_token: str
@@ -120,6 +127,35 @@ class MealResponse(MealBase):
 
     class Config:
         from_attributes = True
+
+
+# Body Weight Schemas
+class BodyWeightBase(BaseModel):
+    weight_kg: float
+    notes: Optional[str] = None
+
+
+class BodyWeightCreate(BodyWeightBase):
+    pass
+
+
+class BodyWeightResponse(BodyWeightBase):
+    id: int
+    user_id: int
+    date: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Personal Record Schema
+class PersonalRecordResponse(BaseModel):
+    exercise_id: int
+    exercise_name: str
+    max_weight: float
+    max_reps: int
+    max_volume: float
+    date_achieved: datetime
 
 
 # Plan Schemas

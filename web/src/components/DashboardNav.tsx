@@ -9,6 +9,8 @@ const navItems = [
   { href: "/dashboard/workouts", label: "Workouts", icon: "💪" },
   { href: "/dashboard/meals", label: "Meals", icon: "🍽️" },
   { href: "/dashboard/analytics", label: "Analytics", icon: "📈" },
+  { href: "/dashboard/prs", label: "PRs", icon: "🏆" },
+  { href: "/dashboard/body-weight", label: "Body Weight", icon: "⚖️" },
   { href: "/dashboard/profile", label: "Profile", icon: "👤" },
 ];
 

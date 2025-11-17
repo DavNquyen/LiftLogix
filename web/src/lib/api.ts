@@ -79,6 +79,25 @@ export const auth = {
     }>("/auth/me");
   },
 
+  async updateProfile(data: {
+    name?: string;
+    height_cm?: number;
+    weight_kg?: number;
+    units?: string;
+  }) {
+    return fetchApi<{
+      id: number;
+      email: string;
+      name: string;
+      height_cm?: number;
+      weight_kg?: number;
+      units: string;
+    }>("/auth/profile", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  },
+
   logout() {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
@@ -221,5 +240,45 @@ export const stats = {
       total_workouts: number;
       total_volume: number;
     }>(`/stats/analytics?days=${days}`);
+  },
+
+  async prs() {
+    return fetchApi<Array<{
+      exercise_id: number;
+      exercise_name: string;
+      max_weight: number;
+      max_reps: number;
+      max_volume: number;
+      date_achieved: string;
+    }>>("/stats/prs");
+  },
+};
+
+// Body Weight API
+export const bodyWeight = {
+  async list() {
+    return fetchApi<Array<{
+      id: number;
+      user_id: number;
+      weight_kg: number;
+      date: string;
+      notes?: string;
+    }>>("/body-weight");
+  },
+
+  async create(data: {
+    weight_kg: number;
+    notes?: string;
+  }) {
+    return fetchApi("/body-weight", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async delete(id: number) {
+    return fetchApi(`/body-weight/${id}`, {
+      method: "DELETE",
+    });
   },
 };
