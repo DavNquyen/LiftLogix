@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List
 from datetime import datetime, timedelta
+from typing import Optional
 from .db import get_db
 from .models import User, Exercise, Workout, Set, Meal, BodyWeight, WorkoutTemplate
 from .schemas import (
@@ -224,6 +225,49 @@ def delete_workout(
     db.delete(workout)
     db.commit()
     return None
+
+
+# Meal totals endpoint - daily totals for calories/macros
+@router.get("/meals/totals")
+def get_meal_totals(
+    date: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Return aggregated nutrition totals for a single day (UTC). Date format: YYYY-MM-DD"""
+    # parse date or use today (UTC)
+    if date:
+        try:
+            start = datetime.fromisoformat(date)
+            start = start.replace(hour=0, minute=0, second=0, microsecond=0)
+        except Exception:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid date format, use YYYY-MM-DD")
+    else:
+        start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    end = start + timedelta(days=1)
+
+    # Aggregate sums, coalesce to 0 when null
+    totals = db.query(
+        func.coalesce(func.sum(Meal.calories), 0),
+        func.coalesce(func.sum(Meal.protein_g), 0),
+        func.coalesce(func.sum(Meal.carbs_g), 0),
+        func.coalesce(func.sum(Meal.fat_g), 0),
+    ).filter(
+        Meal.user_id == current_user.id,
+        Meal.date >= start,
+        Meal.date < end
+    ).one()
+
+    calories, protein, carbs, fat = totals
+
+    return {
+        "date": start.date().isoformat(),
+        "calories": float(calories),
+        "protein_g": float(protein),
+        "carbs_g": float(carbs),
+        "fat_g": float(fat),
+    }
 
 # Workout Template Routes
 @router.get("/workout-templates", response_model=List[WorkoutTemplateResponse])

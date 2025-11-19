@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, date
 from .models import MealType
 
 
@@ -127,6 +127,15 @@ class MealResponse(MealBase):
 
     class Config:
         from_attributes = True
+
+
+# Meal totals response
+class MealTotalsResponse(BaseModel):
+    date: date
+    calories: float
+    protein_g: float
+    carbs_g: float
+    fat_g: float
 
 
 # Body Weight Schemas

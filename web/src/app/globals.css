@@ -11,3 +11,57 @@
     -moz-osx-font-smoothing: grayscale;
   }
 }
+
+/* Animations for charts and progress */
+@keyframes swivel-in {
+  0% { transform: rotateY(90deg) scale(0.6); opacity: 0 }
+  60% { transform: rotateY(-10deg) scale(1.02); opacity: 1 }
+  100% { transform: rotateY(0deg) scale(1); opacity: 1 }
+}
+
+@keyframes grow-width {
+  0% { width: 0% }
+  100% { width: var(--target-width, 100%) }
+}
+
+@layer utilities {
+  .animate-swivel-in {
+    animation: swivel-in 600ms cubic-bezier(.2,.9,.2,1) both;
+    transform-origin: center;
+    backface-visibility: hidden;
+  }
+
+  .animate-grow {
+    animation: grow-width 900ms cubic-bezier(.2,.9,.2,1) both;
+  }
+
+  .goal-marker {
+    position: absolute;
+    top: -6px;
+    width: 2px;
+    height: calc(100% + 12px);
+    background: rgba(255,255,255,0.9);
+    box-shadow: 0 0 0 2px rgba(0,0,0,0.25) inset;
+    transform: translateX(-1px);
+  }
+
+  /* Macro pie animation + legend */
+  .macro-pie {
+    transition: background 900ms linear, --p 900ms linear, --pc 900ms linear;
+    will-change: background, --p, --pc;
+  }
+
+  .macro-legend {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    color: #cbd5e1; /* zinc-300 */
+  }
+
+  .macro-legend .dot {
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 9999px;
+    display: inline-block;
+  }
+}

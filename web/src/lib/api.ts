@@ -217,6 +217,17 @@ export const meals = {
       method: "DELETE",
     });
   },
+
+  async totals(date?: string) {
+    const qs = date ? `?date=${encodeURIComponent(date)}` : "";
+    return fetchApi<{
+      date: string;
+      calories: number;
+      protein_g: number;
+      carbs_g: number;
+      fat_g: number;
+    }>(`/meals/totals${qs}`);
+  },
 };
 
 // Stats API

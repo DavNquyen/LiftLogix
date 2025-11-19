@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { stats } from "@/lib/api";
+import { stats, meals } from "@/lib/api";
 
 interface DashboardStats {
   current_streak: number;
@@ -27,6 +27,9 @@ export default function Dashboard() {
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [prs, setPrs] = useState<PersonalRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [nutritionTotals, setNutritionTotals] = useState<{ date: string; calories: number; protein_g: number; carbs_g: number; fat_g: number } | null>(null);
+  const [calorieGoal, setCalorieGoal] = useState<number | null>(null);
+  const [animateChart, setAnimateChart] = useState(false);
 
   useEffect(() => {
     loadStats();
@@ -35,17 +38,85 @@ export default function Dashboard() {
   const loadStats = async () => {
     try {
       setLoading(true);
-      const [dashboardData, prsData] = await Promise.all([
+      const [dashboardData, prsData, totalsData] = await Promise.all([
         stats.dashboard(),
         stats.prs(),
+        meals.totals(),
       ]);
       setDashboardStats(dashboardData);
       setPrs(prsData.slice(0, 5)); // Show top 5 PRs
+      setNutritionTotals(totalsData);
+      // load calorie goal from localStorage (per-user)
+      try {
+        const uid = String(user?.id || "guest");
+        const key = `calorie_goal_${uid}`;
+        const stored = typeof window !== "undefined" ? localStorage.getItem(key) : null;
+        if (stored) setCalorieGoal(Number(stored));
+      } catch (e) {}
+        // trigger animation when totals load
+        setAnimateChart(true);
+        setTimeout(() => setAnimateChart(false), 1200);
     } catch (err) {
       console.error("Failed to load stats:", err);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Save calorie goal helper
+  const saveCalorieGoal = (value: number) => {
+    const uid = String(user?.id || "guest");
+    const key = `calorie_goal_${uid}`;
+    localStorage.setItem(key, String(value));
+    setCalorieGoal(value);
+  };
+
+  const MacroPie: React.FC<{ protein: number; carbs: number; fat: number; animate?: boolean }> = ({ protein, carbs, fat, animate = false }) => {
+    const total = protein + carbs + fat || 1;
+    const p = Math.round((protein / total) * 100);
+    const c = Math.round((carbs / total) * 100);
+    const pc = p + c;
+
+    // control mount animation so gradient variables animate from 0 -> target
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => {
+      if (animate) {
+        // delay to ensure initial 0% applied before transition
+        const id = window.setTimeout(() => setMounted(true), 50);
+        return () => window.clearTimeout(id);
+      }
+      setMounted(true);
+    }, [protein, carbs, fat, animate]);
+
+    const vars = {
+      // CSS custom properties for stops
+      ["--p"]: mounted ? `${p}%` : `0%`,
+      ["--pc"]: mounted ? `${pc}%` : `0%`,
+      ["--c-p"]: `#60a5fa`,
+      ["--c-c"]: `#fb923c`,
+      ["--c-f"]: `#f43f5e`,
+    } as React.CSSProperties;
+
+    const style: React.CSSProperties = {
+      width: 100,
+      height: 100,
+      borderRadius: 9999,
+      background: `conic-gradient(var(--c-p) 0 var(--p), var(--c-c) var(--p) var(--pc), var(--c-f) var(--pc) 100%)`,
+      ...vars,
+    };
+
+    return (
+      <div className="flex items-center gap-4">
+        <div style={style} className="shadow-sm macro-pie" />
+        <div className="text-sm">
+          <div className="macro-legend">
+            <div className="flex items-center gap-2"><span className="dot" style={{ background: '#60a5fa' }} /> <span className="font-semibold">P</span> {protein}g ({p}%)</div>
+            <div className="flex items-center gap-2"><span className="dot" style={{ background: '#fb923c' }} /> <span className="font-semibold">C</span> {carbs}g ({c}%)</div>
+            <div className="flex items-center gap-2"><span className="dot" style={{ background: '#f43f5e' }} /> <span className="font-semibold">F</span> {fat}g ({100 - p - c}%)</div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const formatVolume = (volume: number) => {
@@ -105,6 +176,78 @@ export default function Dashboard() {
             <div className="text-7xl opacity-60">📊</div>
           </div>
         </div>
+      </div>
+
+      {/* Nutrition widget */}
+      <div className="bg-zinc-900 border-2 border-zinc-800 p-6 mt-6">
+        <h3 className="text-xl font-black text-white mb-3 flex items-center gap-3"><span className="text-2xl">🍽️</span> TODAY'S NUTRITION</h3>
+        {nutritionTotals ? (
+          <div className="grid md:grid-cols-3 gap-6 items-center">
+            <div className={animateChart ? "animate-swivel-in" : ""}>
+              <MacroPie protein={nutritionTotals.protein_g} carbs={nutritionTotals.carbs_g} fat={nutritionTotals.fat_g} animate={animateChart} />
+            </div>
+            <div className="col-span-2">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <p className="text-zinc-400 text-sm">Calories</p>
+                  <p className="text-3xl font-black text-white">{nutritionTotals.calories} kcal</p>
+                </div>
+                <div className="text-right">
+                  <label className="text-zinc-400 text-sm block">Daily Calorie Goal</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={calorieGoal ?? ""}
+                      onChange={(e) => saveCalorieGoal(Number(e.target.value || 0))}
+                      className="w-28 px-3 py-2 rounded bg-zinc-800 text-white"
+                      placeholder="2000"
+                    />
+                    <button
+                      onClick={() => saveCalorieGoal(0)}
+                      className="text-sm text-zinc-400 hover:text-white"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Progress bar */}
+              <div className="mt-4">
+                <div className="relative w-full bg-zinc-800 h-6 rounded-full overflow-hidden">
+                  {/* filled portion */}
+                  <div
+                    style={{
+                      width: `${Math.min(100, calorieGoal && calorieGoal > 0 ? (nutritionTotals.calories / calorieGoal) * 100 : 0)}%`,
+                      ["--target-width"]: `${Math.min(100, calorieGoal && calorieGoal > 0 ? (nutritionTotals.calories / calorieGoal) * 100 : 0)}%`,
+                    } as React.CSSProperties}
+                    className={`${calorieGoal && calorieGoal > 0 && nutritionTotals.calories > calorieGoal ? "bg-rose-500" : "bg-emerald-400"} h-6 animate-grow`}
+                  />
+
+                  {/* goal marker */}
+                  {calorieGoal && calorieGoal > 0 && (
+                    (() => {
+                      const maxRange = Math.max(calorieGoal, nutritionTotals.calories * 1.1, calorieGoal * 1);
+                      const markerLeft = Math.min(100, (calorieGoal / maxRange) * 100);
+                      return (
+                        <div
+                          className="goal-marker"
+                          style={{ left: `${markerLeft}%`, pointerEvents: 'none' }}
+                        />
+                      );
+                    })()
+                  )}
+                </div>
+                <div className="flex items-center justify-between mt-2 text-sm text-zinc-400">
+                  <div>{calorieGoal && calorieGoal > 0 ? `${Math.round((nutritionTotals.calories / calorieGoal) * 100)}%` : "--"}</div>
+                  <div>{calorieGoal && calorieGoal > 0 ? `${nutritionTotals.calories}/${calorieGoal} kcal` : `${nutritionTotals.calories} kcal`}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className="text-zinc-500">Loading nutrition...</p>
+        )}
       </div>
 
       {/* Quick Actions */}
