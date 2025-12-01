@@ -284,10 +284,6 @@ cd ops && docker compose down -v
 - **PostgreSQL**: Relational database
 - **Redis**: Caching and queues (planned)
 
-## 📄 License
-
-This project is built for CS 4624 (Fall 2025).
-
 ## 👥 Team
 
 - David Nguyen (Author)
