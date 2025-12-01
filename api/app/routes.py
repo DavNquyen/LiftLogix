@@ -1,11 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List
 from datetime import datetime, timedelta
 from typing import Optional
+from pathlib import Path
+import os
+import uuid
 from .db import get_db
-from .models import User, Exercise, Workout, Set, Meal, BodyWeight, WorkoutTemplate
+from .models import User, Exercise, Workout, Set, Meal, BodyWeight, WorkoutTemplate, Friendship, WorkoutShare, WorkoutComment, ProgressPhoto, BodyMeasurement, FollowStatus
 from .schemas import (
     UserCreate, UserLogin, UserResponse, UserUpdate, Token,
     ExerciseCreate, ExerciseResponse,
@@ -14,8 +17,14 @@ from .schemas import (
     MealCreate, MealResponse,
     BodyWeightCreate, BodyWeightResponse,
     PersonalRecordResponse,
-    WorkoutTemplateCreate, WorkoutTemplateUpdate, WorkoutTemplateResponse, TemplateExercise
+    WorkoutTemplateCreate, WorkoutTemplateUpdate, WorkoutTemplateResponse, TemplateExercise,
+    FriendshipCreate, FriendshipResponse, FriendWithUser,
+    WorkoutShareCreate, WorkoutShareResponse,
+    WorkoutCommentCreate, WorkoutCommentResponse,
+    ProgressPhotoResponse, ProgressPhotoBase,
+    BodyMeasurementCreate, BodyMeasurementResponse
 )
+from .config import get_settings
 from .auth import (
     get_password_hash, authenticate_user,
     create_access_token, create_refresh_token,
@@ -690,3 +699,470 @@ def get_personal_records(
         })
 
     return prs
+
+
+# Social Features Routes
+# Friendship Routes
+@router.post("/friends", response_model=FriendshipResponse, status_code=status.HTTP_201_CREATED)
+def send_friend_request(
+    friendship: FriendshipCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Send a friend request"""
+    # Check if friendship already exists
+    existing = db.query(Friendship).filter(
+        ((Friendship.follower_id == current_user.id) & (Friendship.following_id == friendship.following_id)) |
+        ((Friendship.follower_id == friendship.following_id) & (Friendship.following_id == current_user.id))
+    ).first()
+
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Friendship request already exists"
+        )
+
+    # Check if user exists
+    target_user = db.query(User).filter(User.id == friendship.following_id).first()
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    db_friendship = Friendship(
+        follower_id=current_user.id,
+        following_id=friendship.following_id,
+        status=FollowStatus.PENDING
+    )
+    db.add(db_friendship)
+    db.commit()
+    db.refresh(db_friendship)
+    return db_friendship
+
+
+@router.get("/friends", response_model=List[FriendWithUser])
+def get_friends(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get all accepted friendships for current user"""
+    friendships = db.query(Friendship).filter(
+        ((Friendship.follower_id == current_user.id) | (Friendship.following_id == current_user.id)) &
+        (Friendship.status == FollowStatus.ACCEPTED)
+    ).all()
+
+    # Format response with the other user's details
+    result = []
+    for friendship in friendships:
+        other_user_id = friendship.following_id if friendship.follower_id == current_user.id else friendship.follower_id
+        other_user = db.query(User).filter(User.id == other_user_id).first()
+
+        result.append(FriendWithUser(
+            id=friendship.id,
+            follower_id=friendship.follower_id,
+            following_id=friendship.following_id,
+            status=friendship.status,
+            user=other_user
+        ))
+
+    return result
+
+
+@router.get("/friends/requests", response_model=List[FriendWithUser])
+def get_friend_requests(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get pending friend requests sent to current user"""
+    requests = db.query(Friendship).filter(
+        Friendship.following_id == current_user.id,
+        Friendship.status == FollowStatus.PENDING
+    ).all()
+
+    result = []
+    for req in requests:
+        requester = db.query(User).filter(User.id == req.follower_id).first()
+        result.append(FriendWithUser(
+            id=req.id,
+            follower_id=req.follower_id,
+            following_id=req.following_id,
+            status=req.status,
+            user=requester
+        ))
+
+    return result
+
+
+@router.patch("/friends/{friendship_id}/accept", response_model=FriendshipResponse)
+def accept_friend_request(
+    friendship_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Accept a friend request"""
+    friendship = db.query(Friendship).filter(
+        Friendship.id == friendship_id,
+        Friendship.following_id == current_user.id,
+        Friendship.status == FollowStatus.PENDING
+    ).first()
+
+    if not friendship:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Friend request not found"
+        )
+
+    friendship.status = FollowStatus.ACCEPTED
+    db.commit()
+    db.refresh(friendship)
+    return friendship
+
+
+@router.delete("/friends/{friendship_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_friend(
+    friendship_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Remove a friend or reject a request"""
+    friendship = db.query(Friendship).filter(
+        Friendship.id == friendship_id,
+        ((Friendship.follower_id == current_user.id) | (Friendship.following_id == current_user.id))
+    ).first()
+
+    if not friendship:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Friendship not found"
+        )
+
+    db.delete(friendship)
+    db.commit()
+    return None
+
+
+@router.get("/users/search")
+def search_users(
+    query: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Search for users by name or email"""
+    users = db.query(User).filter(
+        (User.name.ilike(f"%{query}%")) | (User.email.ilike(f"%{query}%")),
+        User.id != current_user.id
+    ).limit(10).all()
+
+    return [UserResponse.model_validate(u) for u in users]
+
+
+# Workout Sharing Routes
+@router.post("/workouts/{workout_id}/share", response_model=WorkoutShareResponse, status_code=status.HTTP_201_CREATED)
+def share_workout(
+    workout_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Share a workout publicly"""
+    # Verify workout exists and belongs to user
+    workout = db.query(Workout).filter(
+        Workout.id == workout_id,
+        Workout.user_id == current_user.id
+    ).first()
+
+    if not workout:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Workout not found"
+        )
+
+    # Check if already shared
+    existing_share = db.query(WorkoutShare).filter(
+        WorkoutShare.workout_id == workout_id
+    ).first()
+
+    if existing_share:
+        return existing_share
+
+    db_share = WorkoutShare(workout_id=workout_id, is_public=True)
+    db.add(db_share)
+    db.commit()
+    db.refresh(db_share)
+    return db_share
+
+
+@router.delete("/workouts/{workout_id}/share", status_code=status.HTTP_204_NO_CONTENT)
+def unshare_workout(
+    workout_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Remove workout from public feed"""
+    workout = db.query(Workout).filter(
+        Workout.id == workout_id,
+        Workout.user_id == current_user.id
+    ).first()
+
+    if not workout:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Workout not found"
+        )
+
+    share = db.query(WorkoutShare).filter(WorkoutShare.workout_id == workout_id).first()
+    if share:
+        db.delete(share)
+        db.commit()
+
+    return None
+
+
+@router.get("/feed")
+def get_social_feed(
+    skip: int = 0,
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get social feed of friends' shared workouts"""
+    # Get friend IDs
+    friendships = db.query(Friendship).filter(
+        ((Friendship.follower_id == current_user.id) | (Friendship.following_id == current_user.id)) &
+        (Friendship.status == FollowStatus.ACCEPTED)
+    ).all()
+
+    friend_ids = []
+    for f in friendships:
+        friend_id = f.following_id if f.follower_id == current_user.id else f.follower_id
+        friend_ids.append(friend_id)
+
+    # Get shared workouts from friends
+    if not friend_ids:
+        return []
+
+    shared_workouts = db.query(Workout).join(WorkoutShare).filter(
+        Workout.user_id.in_(friend_ids),
+        WorkoutShare.is_public == True
+    ).order_by(Workout.date.desc()).offset(skip).limit(limit).all()
+
+    # Build response with user and share data
+    result = []
+    for workout in shared_workouts:
+        user = db.query(User).filter(User.id == workout.user_id).first()
+        share = db.query(WorkoutShare).filter(WorkoutShare.workout_id == workout.id).first()
+        comments = db.query(WorkoutComment).filter(WorkoutComment.workout_id == workout.id).all()
+
+        result.append({
+            **WorkoutResponse.model_validate(workout).model_dump(),
+            "user": UserResponse.model_validate(user).model_dump(),
+            "share": WorkoutShareResponse.model_validate(share).model_dump(),
+            "comments": [WorkoutCommentResponse.model_validate(c).model_dump() for c in comments]
+        })
+
+    return result
+
+
+@router.post("/workouts/{workout_id}/comments", response_model=WorkoutCommentResponse, status_code=status.HTTP_201_CREATED)
+def add_workout_comment(
+    workout_id: int,
+    comment: WorkoutCommentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Add a comment to a shared workout"""
+    # Verify workout exists and is shared
+    workout = db.query(Workout).filter(Workout.id == workout_id).first()
+    if not workout:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Workout not found"
+        )
+
+    share = db.query(WorkoutShare).filter(
+        WorkoutShare.workout_id == workout_id,
+        WorkoutShare.is_public == True
+    ).first()
+
+    if not share:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Workout is not shared"
+        )
+
+    db_comment = WorkoutComment(
+        workout_id=workout_id,
+        user_id=current_user.id,
+        comment_text=comment.comment_text
+    )
+    db.add(db_comment)
+    db.commit()
+    db.refresh(db_comment)
+
+    return WorkoutCommentResponse(
+        id=db_comment.id,
+        workout_id=db_comment.workout_id,
+        user_id=db_comment.user_id,
+        comment_text=db_comment.comment_text,
+        created_at=db_comment.created_at,
+        user=UserResponse.model_validate(current_user)
+    )
+
+
+# Progress Photos Routes
+@router.post("/progress-photos", response_model=ProgressPhotoResponse, status_code=status.HTTP_201_CREATED)
+async def upload_progress_photo(
+    file: UploadFile = File(...),
+    photo_type: Optional[str] = None,
+    notes: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Upload a progress photo"""
+    settings = get_settings()
+
+    # Validate file extension
+    file_ext = Path(file.filename).suffix.lower()
+    if file_ext not in settings.ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file type. Allowed: {', '.join(settings.ALLOWED_EXTENSIONS)}"
+        )
+
+    # Create upload directory if it doesn't exist
+    upload_dir = Path(settings.UPLOAD_DIR)
+    upload_dir.mkdir(parents=True, exist_ok=True)
+
+    # Generate unique filename
+    unique_filename = f"{current_user.id}_{uuid.uuid4()}{file_ext}"
+    file_path = upload_dir / unique_filename
+
+    # Save file
+    try:
+        contents = await file.read()
+        if len(contents) > settings.MAX_UPLOAD_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File too large. Max size: {settings.MAX_UPLOAD_SIZE / 1024 / 1024}MB"
+            )
+
+        with open(file_path, "wb") as f:
+            f.write(contents)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to upload file: {str(e)}"
+        )
+
+    # Create database record
+    db_photo = ProgressPhoto(
+        user_id=current_user.id,
+        photo_url=f"/{settings.UPLOAD_DIR}/{unique_filename}",
+        photo_type=photo_type,
+        notes=notes
+    )
+    db.add(db_photo)
+    db.commit()
+    db.refresh(db_photo)
+
+    return db_photo
+
+
+@router.get("/progress-photos", response_model=List[ProgressPhotoResponse])
+def get_progress_photos(
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get user's progress photos"""
+    photos = db.query(ProgressPhoto).filter(
+        ProgressPhoto.user_id == current_user.id
+    ).order_by(ProgressPhoto.date.desc()).offset(skip).limit(limit).all()
+    return photos
+
+
+@router.delete("/progress-photos/{photo_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_progress_photo(
+    photo_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Delete a progress photo"""
+    photo = db.query(ProgressPhoto).filter(
+        ProgressPhoto.id == photo_id,
+        ProgressPhoto.user_id == current_user.id
+    ).first()
+
+    if not photo:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Photo not found"
+        )
+
+    # Delete file from disk
+    try:
+        file_path = Path(photo.photo_url.lstrip('/'))
+        if file_path.exists():
+            file_path.unlink()
+    except Exception as e:
+        print(f"Warning: Failed to delete file: {e}")
+
+    db.delete(photo)
+    db.commit()
+    return None
+
+
+# Body Measurements Routes
+@router.get("/body-measurements", response_model=List[BodyMeasurementResponse])
+def get_body_measurements(
+    skip: int = 0,
+    limit: int = 90,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get user's body measurements"""
+    measurements = db.query(BodyMeasurement).filter(
+        BodyMeasurement.user_id == current_user.id
+    ).order_by(BodyMeasurement.date.desc()).offset(skip).limit(limit).all()
+    return measurements
+
+
+@router.post("/body-measurements", response_model=BodyMeasurementResponse, status_code=status.HTTP_201_CREATED)
+def create_body_measurement(
+    measurement: BodyMeasurementCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Log new body measurements"""
+    db_measurement = BodyMeasurement(
+        user_id=current_user.id,
+        **measurement.model_dump()
+    )
+    db.add(db_measurement)
+    db.commit()
+    db.refresh(db_measurement)
+    return db_measurement
+
+
+@router.delete("/body-measurements/{measurement_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_body_measurement(
+    measurement_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Delete a body measurement entry"""
+    measurement = db.query(BodyMeasurement).filter(
+        BodyMeasurement.id == measurement_id,
+        BodyMeasurement.user_id == current_user.id
+    ).first()
+
+    if not measurement:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Measurement not found"
+        )
+
+    db.delete(measurement)
+    db.commit()
+    return None

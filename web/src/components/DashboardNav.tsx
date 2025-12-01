@@ -11,6 +11,10 @@ const navItems = [
   { href: "/dashboard/analytics", label: "Analytics", icon: "📈" },
   { href: "/dashboard/prs", label: "PRs", icon: "🏆" },
   { href: "/dashboard/body-weight", label: "Body Weight", icon: "⚖️" },
+  { href: "/dashboard/progress-photos", label: "Photos", icon: "📸" },
+  { href: "/dashboard/measurements", label: "Measurements", icon: "📏" },
+  { href: "/dashboard/social", label: "Social", icon: "📱" },
+  { href: "/dashboard/friends", label: "Friends", icon: "🤝" },
   { href: "/dashboard/profile", label: "Profile", icon: "👤" },
 ];
 

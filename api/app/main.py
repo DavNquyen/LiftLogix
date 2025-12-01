@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 from .config import get_settings
 from .routes import router
 
@@ -18,6 +20,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount static files for progress photos
+upload_dir = Path("uploads")
+if upload_dir.exists():
+    app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Include routes
 app.include_router(router, prefix=settings.API_V1_PREFIX)

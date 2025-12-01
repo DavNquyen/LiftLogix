@@ -355,3 +355,239 @@ export const templates = {
     });
   },
 };
+
+// Social API
+export const social = {
+  // Friendships
+  async sendFriendRequest(userId: number) {
+    return fetchApi<{
+      id: number;
+      follower_id: number;
+      following_id: number;
+      status: "pending" | "accepted" | "rejected";
+      created_at: string;
+    }>("/friends", {
+      method: "POST",
+      body: JSON.stringify({ following_id: userId }),
+    });
+  },
+
+  async getFriends() {
+    return fetchApi<Array<{
+      id: number;
+      follower_id: number;
+      following_id: number;
+      status: "pending" | "accepted" | "rejected";
+      user: {
+        id: number;
+        email: string;
+        name: string;
+        height_cm?: number;
+        weight_kg?: number;
+        units: string;
+      };
+    }>>("/friends");
+  },
+
+  async getFriendRequests() {
+    return fetchApi<Array<{
+      id: number;
+      follower_id: number;
+      following_id: number;
+      status: "pending" | "accepted" | "rejected";
+      user: {
+        id: number;
+        email: string;
+        name: string;
+      };
+    }>>("/friends/requests");
+  },
+
+  async acceptFriendRequest(friendshipId: number) {
+    return fetchApi(`/friends/${friendshipId}/accept`, {
+      method: "PATCH",
+    });
+  },
+
+  async removeFriend(friendshipId: number) {
+    return fetchApi(`/friends/${friendshipId}`, {
+      method: "DELETE",
+    });
+  },
+
+  async searchUsers(query: string) {
+    return fetchApi<Array<{
+      id: number;
+      email: string;
+      name: string;
+    }>>(`/users/search?query=${encodeURIComponent(query)}`);
+  },
+
+  // Workout Sharing
+  async shareWorkout(workoutId: number) {
+    return fetchApi<{
+      id: number;
+      workout_id: number;
+      is_public: boolean;
+      created_at: string;
+    }>(`/workouts/${workoutId}/share`, {
+      method: "POST",
+    });
+  },
+
+  async unshareWorkout(workoutId: number) {
+    return fetchApi(`/workouts/${workoutId}/share`, {
+      method: "DELETE",
+    });
+  },
+
+  async getFeed(skip: number = 0, limit: number = 20) {
+    return fetchApi<Array<{
+      id: number;
+      user_id: number;
+      date: string;
+      name?: string;
+      notes?: string;
+      sets: Array<{
+        id: number;
+        exercise_id: number;
+        weight: number;
+        reps: number;
+        rpe?: number;
+      }>;
+      user: {
+        id: number;
+        email: string;
+        name: string;
+      };
+      share: {
+        id: number;
+        workout_id: number;
+        is_public: boolean;
+        created_at: string;
+      };
+      comments: Array<{
+        id: number;
+        workout_id: number;
+        user_id: number;
+        comment_text: string;
+        created_at: string;
+        user: {
+          id: number;
+          email: string;
+          name: string;
+        };
+      }>;
+    }>>(`/feed?skip=${skip}&limit=${limit}`);
+  },
+
+  async addComment(workoutId: number, commentText: string) {
+    return fetchApi<{
+      id: number;
+      workout_id: number;
+      user_id: number;
+      comment_text: string;
+      created_at: string;
+      user: {
+        id: number;
+        email: string;
+        name: string;
+      };
+    }>(`/workouts/${workoutId}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ comment_text: commentText }),
+    });
+  },
+};
+
+// Progress Photos API
+export const progressPhotos = {
+  async list() {
+    return fetchApi<Array<{
+      id: number;
+      user_id: number;
+      photo_url: string;
+      photo_type?: string;
+      notes?: string;
+      date: string;
+    }>>("/progress-photos");
+  },
+
+  async upload(file: File, photoType?: string, notes?: string) {
+    const formData = new FormData();
+    formData.append("file", file);
+    if (photoType) formData.append("photo_type", photoType);
+    if (notes) formData.append("notes", notes);
+
+    const token = localStorage.getItem("access_token");
+    const response = await fetch(`${API_URL}/progress-photos`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: "Upload failed" }));
+      throw new ApiError(response.status, error.detail);
+    }
+
+    return response.json();
+  },
+
+  async delete(id: number) {
+    return fetchApi(`/progress-photos/${id}`, {
+      method: "DELETE",
+    });
+  },
+};
+
+// Body Measurements API
+export const bodyMeasurements = {
+  async list() {
+    return fetchApi<Array<{
+      id: number;
+      user_id: number;
+      date: string;
+      chest_cm?: number;
+      waist_cm?: number;
+      hips_cm?: number;
+      left_bicep_cm?: number;
+      right_bicep_cm?: number;
+      left_thigh_cm?: number;
+      right_thigh_cm?: number;
+      left_calf_cm?: number;
+      right_calf_cm?: number;
+      neck_cm?: number;
+      shoulders_cm?: number;
+      notes?: string;
+    }>>("/body-measurements");
+  },
+
+  async create(data: {
+    chest_cm?: number;
+    waist_cm?: number;
+    hips_cm?: number;
+    left_bicep_cm?: number;
+    right_bicep_cm?: number;
+    left_thigh_cm?: number;
+    right_thigh_cm?: number;
+    left_calf_cm?: number;
+    right_calf_cm?: number;
+    neck_cm?: number;
+    shoulders_cm?: number;
+    notes?: string;
+  }) {
+    return fetchApi("/body-measurements", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async delete(id: number) {
+    return fetchApi(`/body-measurements/${id}`, {
+      method: "DELETE",
+    });
+  },
+};

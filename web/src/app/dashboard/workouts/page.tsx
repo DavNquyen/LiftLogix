@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { exercises, workouts, templates } from "@/lib/api";
+import { exercises, workouts, templates, social } from "@/lib/api";
 
 interface Exercise {
   id: number;
@@ -453,12 +453,27 @@ export default function Workouts() {
                       </p>
                     )}
                   </div>
-                  <button
-                    onClick={() => setDeleteConfirm(workout.id)}
-                    className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold transition"
-                  >
-                    DELETE
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={async () => {
+                        try {
+                          await social.shareWorkout(workout.id);
+                          alert("Workout shared to feed!");
+                        } catch (err) {
+                          alert("Failed to share workout");
+                        }
+                      }}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold transition"
+                    >
+                      SHARE
+                    </button>
+                    <button
+                      onClick={() => setDeleteConfirm(workout.id)}
+                      className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold transition"
+                    >
+                      DELETE
+                    </button>
+                  </div>
                 </div>
 
                 {/* Delete Confirmation Popup */}

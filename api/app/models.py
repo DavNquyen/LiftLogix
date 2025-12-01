@@ -23,6 +23,8 @@ class User(Base):
     plans = relationship("Plan", back_populates="user")
     body_weights = relationship("BodyWeight", back_populates="user")
     workout_templates = relationship("WorkoutTemplate", back_populates="user")
+    progress_photos = relationship("ProgressPhoto", back_populates="user")
+    body_measurements = relationship("BodyMeasurement", back_populates="user")
 
 
 class Exercise(Base):
@@ -144,3 +146,91 @@ class WorkoutTemplate(Base):
 
     # Relationships
     user = relationship("User", back_populates="workout_templates")
+
+
+# Social Features Models
+class FollowStatus(str, enum.Enum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+
+
+class Friendship(Base):
+    __tablename__ = "friendships"
+
+    id = Column(Integer, primary_key=True, index=True)
+    follower_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    following_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    status = Column(SQLEnum(FollowStatus), default=FollowStatus.PENDING)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    follower = relationship("User", foreign_keys=[follower_id])
+    following = relationship("User", foreign_keys=[following_id])
+
+
+class WorkoutShare(Base):
+    __tablename__ = "workout_shares"
+
+    id = Column(Integer, primary_key=True, index=True)
+    workout_id = Column(Integer, ForeignKey("workouts.id"), nullable=False)
+    is_public = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    workout = relationship("Workout")
+
+
+class WorkoutComment(Base):
+    __tablename__ = "workout_comments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    workout_id = Column(Integer, ForeignKey("workouts.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    comment_text = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    workout = relationship("Workout")
+    user = relationship("User")
+
+
+# Progress Tracking Models
+class ProgressPhoto(Base):
+    __tablename__ = "progress_photos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    photo_url = Column(String, nullable=False)
+    photo_type = Column(String, nullable=True)  # front, side, back
+    notes = Column(Text, nullable=True)
+    date = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    user = relationship("User", back_populates="progress_photos")
+
+
+class BodyMeasurement(Base):
+    __tablename__ = "body_measurements"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    date = Column(DateTime, default=datetime.utcnow)
+
+    # Measurements in cm
+    chest_cm = Column(Float, nullable=True)
+    waist_cm = Column(Float, nullable=True)
+    hips_cm = Column(Float, nullable=True)
+    left_bicep_cm = Column(Float, nullable=True)
+    right_bicep_cm = Column(Float, nullable=True)
+    left_thigh_cm = Column(Float, nullable=True)
+    right_thigh_cm = Column(Float, nullable=True)
+    left_calf_cm = Column(Float, nullable=True)
+    right_calf_cm = Column(Float, nullable=True)
+    neck_cm = Column(Float, nullable=True)
+    shoulders_cm = Column(Float, nullable=True)
+
+    notes = Column(Text, nullable=True)
+
+    # Relationships
+    user = relationship("User", back_populates="body_measurements")

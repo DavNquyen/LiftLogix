@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
+    # File Upload
+    UPLOAD_DIR: str = "uploads/progress_photos"
+    MAX_UPLOAD_SIZE: int = 10 * 1024 * 1024  # 10MB
+    ALLOWED_EXTENSIONS: list[str] = [".jpg", ".jpeg", ".png", ".webp"]
+
     class Config:
         env_file = ".env"
         case_sensitive = True

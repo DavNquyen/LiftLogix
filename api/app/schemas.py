@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List
 from datetime import datetime, date
-from .models import MealType
+from .models import MealType, FollowStatus
 
 
 # User Schemas
@@ -211,6 +211,117 @@ class WorkoutTemplateResponse(WorkoutTemplateBase):
     id: int
     exercises: List[TemplateExercise] = []
     created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Social Features Schemas
+# Friendship Schemas
+class FriendshipBase(BaseModel):
+    following_id: int
+
+
+class FriendshipCreate(FriendshipBase):
+    pass
+
+
+class FriendshipResponse(BaseModel):
+    id: int
+    follower_id: int
+    following_id: int
+    status: FollowStatus
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class FriendWithUser(BaseModel):
+    id: int
+    follower_id: int
+    following_id: int
+    status: FollowStatus
+    user: UserResponse
+
+    class Config:
+        from_attributes = True
+
+
+# Workout Share Schemas
+class WorkoutShareCreate(BaseModel):
+    workout_id: int
+    is_public: bool = True
+
+
+class WorkoutShareResponse(BaseModel):
+    id: int
+    workout_id: int
+    is_public: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Workout Comment Schemas
+class WorkoutCommentCreate(BaseModel):
+    comment_text: str
+
+
+class WorkoutCommentResponse(BaseModel):
+    id: int
+    workout_id: int
+    user_id: int
+    comment_text: str
+    created_at: datetime
+    user: UserResponse
+
+    class Config:
+        from_attributes = True
+
+
+# Progress Tracking Schemas
+# Progress Photo Schemas
+class ProgressPhotoBase(BaseModel):
+    photo_type: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class ProgressPhotoResponse(ProgressPhotoBase):
+    id: int
+    user_id: int
+    photo_url: str
+    date: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Body Measurement Schemas
+class BodyMeasurementBase(BaseModel):
+    chest_cm: Optional[float] = None
+    waist_cm: Optional[float] = None
+    hips_cm: Optional[float] = None
+    left_bicep_cm: Optional[float] = None
+    right_bicep_cm: Optional[float] = None
+    left_thigh_cm: Optional[float] = None
+    right_thigh_cm: Optional[float] = None
+    left_calf_cm: Optional[float] = None
+    right_calf_cm: Optional[float] = None
+    neck_cm: Optional[float] = None
+    shoulders_cm: Optional[float] = None
+    notes: Optional[str] = None
+
+
+class BodyMeasurementCreate(BodyMeasurementBase):
+    pass
+
+
+class BodyMeasurementResponse(BodyMeasurementBase):
+    id: int
+    user_id: int
+    date: datetime
 
     class Config:
         from_attributes = True
