@@ -37,7 +37,17 @@ router = APIRouter()
 # Auth Routes
 @router.post("/auth/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register(user: UserCreate, db: Session = Depends(get_db)):
-    """Register a new user"""
+    """Register a new user with password strength validation"""
+    from .utils import validate_password
+
+    # Validate password strength
+    password_error = validate_password(user.password)
+    if password_error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=password_error
+        )
+
     # Check if user exists
     db_user = db.query(User).filter(User.email == user.email).first()
     if db_user:
@@ -76,6 +86,63 @@ def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
+        "token_type": "bearer"
+    }
+
+
+@router.post("/auth/refresh", response_model=Token)
+def refresh_access_token(
+    refresh_token_data: dict,
+    db: Session = Depends(get_db)
+):
+    """Refresh access token using refresh token"""
+    from jose import JWTError, jwt
+    from .config import get_settings
+
+    settings = get_settings()
+    refresh_token = refresh_token_data.get("refresh_token")
+
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing refresh token"
+        )
+
+    try:
+        payload = jwt.decode(
+            refresh_token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM]
+        )
+        user_id_str = payload.get("sub")
+        if user_id_str is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token"
+            )
+
+        user_id = int(user_id_str)
+    except (JWTError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token"
+        )
+
+    # Verify user still exists
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found"
+        )
+
+    # Generate new tokens
+    new_access_token = create_access_token(data={"sub": str(user.id)})
+    new_refresh_token = create_refresh_token(data={"sub": str(user.id)})
+
+    return {
+        "access_token": new_access_token,
+        "refresh_token": new_refresh_token,
         "token_type": "bearer"
     }
 
@@ -157,27 +224,41 @@ def create_workout(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Create a new workout with sets"""
-    db_workout = Workout(
-        user_id=current_user.id,
-        name=workout.name,
-        notes=workout.notes
-    )
-    db.add(db_workout)
-    db.commit()
-    db.refresh(db_workout)
+    """Create a new workout with sets in a single transaction"""
+    import logging
 
-    # Add sets
-    for set_data in workout.sets:
-        db_set = Set(
-            workout_id=db_workout.id,
-            **set_data.model_dump()
+    logger = logging.getLogger(__name__)
+
+    try:
+        # Create workout
+        db_workout = Workout(
+            user_id=current_user.id,
+            name=workout.name,
+            notes=workout.notes
         )
-        db.add(db_set)
+        db.add(db_workout)
+        db.flush()  # Flush to get workout.id without committing
 
-    db.commit()
-    db.refresh(db_workout)
-    return db_workout
+        # Add all sets
+        for set_data in workout.sets:
+            db_set = Set(
+                workout_id=db_workout.id,
+                **set_data.model_dump()
+            )
+            db.add(db_set)
+
+        # Commit everything together
+        db.commit()
+        db.refresh(db_workout)
+        return db_workout
+
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to create workout for user {current_user.id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create workout"
+        )
 
 
 @router.post("/workouts/{workout_id}/sets", response_model=SetResponse, status_code=status.HTTP_201_CREATED)
@@ -618,16 +699,20 @@ def get_dashboard_stats(
 
 @router.get("/stats/analytics")
 def get_analytics_data(
-    days: int = 30,
+    days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Get analytics data for charts (volume over time, workout frequency)"""
+    from sqlalchemy.orm import joinedload
+
     now = datetime.utcnow()
     start_date = now - timedelta(days=days)
 
-    # Get all workouts in the time range
-    workouts = db.query(Workout).filter(
+    # Get all workouts with their sets in ONE query (fixes N+1 problem)
+    workouts = db.query(Workout).options(
+        joinedload(Workout.sets)
+    ).filter(
         Workout.user_id == current_user.id,
         Workout.date >= start_date
     ).order_by(Workout.date.asc()).all()
@@ -645,9 +730,8 @@ def get_analytics_data(
                 "workouts": 0
             }
 
-        # Calculate volume for this workout
-        sets = db.query(Set).filter(Set.workout_id == workout.id).all()
-        workout_volume = sum(s.weight * s.reps for s in sets)
+        # Calculate volume using already-loaded sets (no additional queries!)
+        workout_volume = sum(s.weight * s.reps for s in workout.sets)
 
         daily_data[date_str]["volume"] += workout_volume
         daily_data[date_str]["workouts"] += 1
@@ -667,24 +751,39 @@ def get_personal_records(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get personal records (PRs) for each exercise"""
-    # Get all exercises user has logged
-    exercises_with_sets = db.query(Exercise).join(Set).join(Workout).filter(
+    """Get personal records (PRs) for each exercise - optimized to avoid N+1 queries"""
+    from collections import defaultdict
+
+    # Get ALL user's sets in ONE query (fixes N+1 problem)
+    all_sets = db.query(Set).join(Workout).filter(
         Workout.user_id == current_user.id
-    ).distinct().all()
+    ).all()
 
+    if not all_sets:
+        return []
+
+    # Group sets by exercise_id in memory (fast)
+    sets_by_exercise = defaultdict(list)
+    for s in all_sets:
+        sets_by_exercise[s.exercise_id].append(s)
+
+    # Get exercise details for all used exercises in ONE query
+    exercise_ids = list(sets_by_exercise.keys())
+    exercises = db.query(Exercise).filter(
+        Exercise.id.in_(exercise_ids)
+    ).all()
+
+    # Create exercise lookup dictionary
+    exercises_map = {ex.id: ex for ex in exercises}
+
+    # Calculate PRs for each exercise
     prs = []
-    for exercise in exercises_with_sets:
-        # Get all sets for this exercise
-        sets = db.query(Set).join(Workout).filter(
-            Workout.user_id == current_user.id,
-            Set.exercise_id == exercise.id
-        ).all()
-
-        if not sets:
+    for exercise_id, sets in sets_by_exercise.items():
+        exercise = exercises_map.get(exercise_id)
+        if not exercise or not sets:
             continue
 
-        # Calculate PRs
+        # Calculate PRs from in-memory sets
         max_weight_set = max(sets, key=lambda s: s.weight)
         max_reps_set = max(sets, key=lambda s: s.reps)
         max_volume_set = max(sets, key=lambda s: s.weight * s.reps)
@@ -920,12 +1019,14 @@ def unshare_workout(
 
 @router.get("/feed")
 def get_social_feed(
-    skip: int = 0,
-    limit: int = 20,
+    skip: int = Query(0, ge=0, description="Number of items to skip"),
+    limit: int = Query(20, ge=1, le=100, description="Number of items to return"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get social feed of friends' shared workouts"""
+    """Get social feed of friends' shared workouts - optimized to avoid N+1 queries"""
+    from sqlalchemy.orm import joinedload
+
     # Get friend IDs
     friendships = db.query(Friendship).filter(
         ((Friendship.follower_id == current_user.id) | (Friendship.following_id == current_user.id)) &
@@ -941,23 +1042,56 @@ def get_social_feed(
     if not friend_ids:
         return []
 
-    shared_workouts = db.query(Workout).join(WorkoutShare).filter(
+    # Load workouts with related data in ONE query (fixes N+1 problem)
+    shared_workouts = db.query(Workout).options(
+        joinedload(Workout.user),
+        joinedload(Workout.sets)
+    ).join(WorkoutShare).filter(
         Workout.user_id.in_(friend_ids),
         WorkoutShare.is_public == True
     ).order_by(Workout.date.desc()).offset(skip).limit(limit).all()
 
-    # Build response with user and share data
+    # Load shares and comments separately (more efficient than nested joinedload)
+    workout_ids = [w.id for w in shared_workouts]
+
+    shares = db.query(WorkoutShare).filter(
+        WorkoutShare.workout_id.in_(workout_ids)
+    ).all()
+    shares_map = {s.workout_id: s for s in shares}
+
+    comments_query = db.query(WorkoutComment).options(
+        joinedload(WorkoutComment.user)
+    ).filter(
+        WorkoutComment.workout_id.in_(workout_ids)
+    ).all()
+
+    # Group comments by workout_id
+    comments_map = {}
+    for comment in comments_query:
+        if comment.workout_id not in comments_map:
+            comments_map[comment.workout_id] = []
+        comments_map[comment.workout_id].append(comment)
+
+    # Build response using already-loaded data (no additional queries!)
     result = []
     for workout in shared_workouts:
-        user = db.query(User).filter(User.id == workout.user_id).first()
-        share = db.query(WorkoutShare).filter(WorkoutShare.workout_id == workout.id).first()
-        comments = db.query(WorkoutComment).filter(WorkoutComment.workout_id == workout.id).all()
+        workout_comments = comments_map.get(workout.id, [])
+        share = shares_map.get(workout.id)
+
+        if not share:
+            continue
 
         result.append({
             **WorkoutResponse.model_validate(workout).model_dump(),
-            "user": UserResponse.model_validate(user).model_dump(),
+            "user": UserResponse.model_validate(workout.user).model_dump(),
             "share": WorkoutShareResponse.model_validate(share).model_dump(),
-            "comments": [WorkoutCommentResponse.model_validate(c).model_dump() for c in comments]
+            "comments": [
+                {
+                    **WorkoutCommentResponse.model_validate(c).model_dump(),
+                    "user": UserResponse.model_validate(c.user).model_dump()
+                }
+                for c in workout_comments
+            ]
         })
 
     return result
@@ -1018,7 +1152,11 @@ async def upload_progress_photo(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Upload a progress photo"""
+    """Upload a progress photo with security validations"""
+    import secrets
+    import logging
+
+    logger = logging.getLogger(__name__)
     settings = get_settings()
 
     # Validate file extension
@@ -1026,32 +1164,73 @@ async def upload_progress_photo(
     if file_ext not in settings.ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid file type. Allowed: {', '.join(settings.ALLOWED_EXTENSIONS)}"
+            detail=f"Invalid file extension. Allowed: {', '.join(settings.ALLOWED_EXTENSIONS)}"
+        )
+
+    # Validate MIME type (more secure than extension alone)
+    if file.content_type not in settings.ALLOWED_MIME_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file type. Allowed: image/jpeg, image/png, image/webp"
+        )
+
+    # Validate file size before reading (prevents memory exhaustion)
+    if file.size and file.size > settings.MAX_UPLOAD_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File too large. Max size: {settings.MAX_UPLOAD_SIZE / 1024 / 1024}MB"
         )
 
     # Create upload directory if it doesn't exist
     upload_dir = Path(settings.UPLOAD_DIR)
     upload_dir.mkdir(parents=True, exist_ok=True)
 
-    # Generate unique filename
-    unique_filename = f"{current_user.id}_{uuid.uuid4()}{file_ext}"
+    # Generate cryptographically secure random filename (don't expose user_id)
+    unique_filename = f"{secrets.token_hex(16)}{file_ext}"
     file_path = upload_dir / unique_filename
+
+    # Prevent directory traversal attacks
+    if not file_path.resolve().is_relative_to(upload_dir.resolve()):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file path"
+        )
 
     # Save file
     try:
         contents = await file.read()
+
+        # Double-check size after reading
         if len(contents) > settings.MAX_UPLOAD_SIZE:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                 detail=f"File too large. Max size: {settings.MAX_UPLOAD_SIZE / 1024 / 1024}MB"
             )
 
+        # Write file securely
         with open(file_path, "wb") as f:
             f.write(contents)
-    except Exception as e:
+
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except IOError as e:
+        logger.error(f"Failed to write file for user {current_user.id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to upload file: {str(e)}"
+            detail="Failed to save file"
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error during file upload for user {current_user.id}: {e}")
+        # Clean up partial file if it exists
+        if file_path.exists():
+            try:
+                file_path.unlink()
+            except Exception as cleanup_error:
+                logger.warning(f"Failed to clean up file {file_path}: {cleanup_error}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Upload failed"
         )
 
     # Create database record

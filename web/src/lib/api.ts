@@ -9,11 +9,22 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Get secure token storage (sessionStorage is more secure than localStorage)
+ * sessionStorage: Cleared when tab closes, not accessible across tabs
+ * localStorage: Persists forever, accessible across tabs
+ */
+function getTokenStorage() {
+  // Use sessionStorage for better security (XSS attacks have smaller window)
+  return typeof window !== 'undefined' ? sessionStorage : null;
+}
+
 async function fetchApi<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const token = localStorage.getItem("access_token");
+  const storage = getTokenStorage();
+  const token = storage?.getItem("access_token");
 
   const headers: HeadersInit = {
     "Content-Type": "application/json",
@@ -61,9 +72,12 @@ export const auth = {
       body: JSON.stringify(data),
     });
 
-    // Store tokens
-    localStorage.setItem("access_token", response.access_token);
-    localStorage.setItem("refresh_token", response.refresh_token);
+    // Store tokens in sessionStorage for better security
+    const storage = getTokenStorage();
+    if (storage) {
+      storage.setItem("access_token", response.access_token);
+      storage.setItem("refresh_token", response.refresh_token);
+    }
 
     return response;
   },
@@ -99,8 +113,11 @@ export const auth = {
   },
 
   logout() {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
+    const storage = getTokenStorage();
+    if (storage) {
+      storage.removeItem("access_token");
+      storage.removeItem("refresh_token");
+    }
   },
 };
 
@@ -519,7 +536,8 @@ export const progressPhotos = {
     if (photoType) formData.append("photo_type", photoType);
     if (notes) formData.append("notes", notes);
 
-    const token = localStorage.getItem("access_token");
+    const storage = getTokenStorage();
+    const token = storage?.getItem("access_token");
     const response = await fetch(`${API_URL}/progress-photos`, {
       method: "POST",
       headers: {

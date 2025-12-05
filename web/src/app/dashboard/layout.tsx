@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import DashboardNav from "@/components/DashboardNav";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export default function DashboardLayout({
   children,
@@ -38,13 +39,15 @@ export default function DashboardLayout({
     return null;
   }
 
-  // User is authenticated, render dashboard
+  // User is authenticated, render dashboard with error boundary
   return (
-    <div className="min-h-screen bg-black">
-      <DashboardNav />
-      <main className="container mx-auto px-6 py-8">
-        {children}
-      </main>
-    </div>
+    <ErrorBoundary>
+      <div className="min-h-screen bg-black">
+        <DashboardNav />
+        <main className="container mx-auto px-6 py-8">
+          {children}
+        </main>
+      </div>
+    </ErrorBoundary>
   );
 }

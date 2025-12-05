@@ -109,11 +109,11 @@ class WorkoutResponse(WorkoutBase):
 # Meal Schemas
 class MealBase(BaseModel):
     type: MealType
-    calories: float
-    protein_g: float
-    carbs_g: float
-    fat_g: float
-    description: Optional[str] = None
+    calories: float = Field(..., ge=0, le=10000, description="Calories (0-10000)")
+    protein_g: float = Field(..., ge=0, le=500, description="Protein in grams (0-500)")
+    carbs_g: float = Field(..., ge=0, le=500, description="Carbohydrates in grams (0-500)")
+    fat_g: float = Field(..., ge=0, le=300, description="Fat in grams (0-300)")
+    description: Optional[str] = Field(None, max_length=500)
 
 
 class MealCreate(MealBase):
