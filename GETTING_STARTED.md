@@ -1,10 +1,10 @@
 # Getting Started with LiftLogix
 
-This guide will help you and your teammates get the LiftLogix mockup running quickly.
+This guide will help you get the LiftLogix app running quickly.
 
 ## 🎯 What's Been Built
 
-This is a **basic mockup** of the LiftLogix app with a solid foundation for your team to build upon. It includes:
+This is a **basic mockup** of the LiftLogix app with a solid foundation to build upon. It includes:
 
 ### ✅ Complete Features
 
@@ -151,7 +151,7 @@ LiftLogix/
 - `web/src/types/index.ts` - TypeScript types
 - `web/src/components/DashboardNav.tsx` - Navigation component
 
-## 🛠️ What Your Team Should Build Next
+## 🛠️ What to Build Next
 
 This mockup provides the foundation. Here are suggested next steps:
 
@@ -254,21 +254,12 @@ Visit `http://localhost:8000/docs` for:
 - **SQLAlchemy**: https://docs.sqlalchemy.org/
 - **Tailwind CSS**: https://tailwindcss.com/docs
 
-## 🤝 Team Workflow Suggestions
-
-1. **Use Git branches** for each feature
-2. **Review the CLAUDE.md** spec regularly
-3. **Update the README** as you build
-4. **Assign features** from the OKRs
-5. **Test locally** before merging
-
 ## 📞 Need Help?
 
 - Check the main `README.md` for detailed docs
-- Review `CLAUDE.md` for the original spec
 - Inspect the code - it's well-commented!
 - Use the API docs at `/docs` endpoint
 
 ---
 
-**Good luck with your semester project! 🚀**
+**Train hard! 🚀**
