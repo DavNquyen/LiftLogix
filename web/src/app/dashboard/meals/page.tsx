@@ -264,7 +264,7 @@ export default function MealsPage() {
             <h1 className="text-4xl font-bold text-white">🍽️ Meal Tracking</h1>
 
             {/* Add Meal Form */}
-            <div className="bg-zinc-900 border-2 border-zinc-800 p-6 rounded-none">
+            <div className="bg-zinc-900 border-2 border-zinc-800 p-6 rounded-2xl">
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-2xl font-semibold text-white">Add Meal</h2>
                     {totals && (
@@ -335,7 +335,7 @@ export default function MealsPage() {
                         <select
                             value={type}
                             onChange={(e) => setType(e.target.value as MealType)}
-                            className="w-full bg-zinc-800 border border-zinc-700 rounded-none px-3 py-2 text-white"
+                            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white"
                         >
                             <option value="breakfast">Breakfast</option>
                             <option value="lunch">Lunch</option>
@@ -350,28 +350,28 @@ export default function MealsPage() {
                             placeholder="Calories"
                             value={calories}
                             onChange={(e) => setCalories(e.target.value)}
-                            className="bg-zinc-800 border border-zinc-700 rounded-none px-3 py-2 text-white"
+                            className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white"
                         />
                         <input
                             type="number"
                             placeholder="Protein (g)"
                             value={protein}
                             onChange={(e) => setProtein(e.target.value)}
-                            className="bg-zinc-800 border border-zinc-700 rounded-none px-3 py-2 text-white"
+                            className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white"
                         />
                         <input
                             type="number"
                             placeholder="Carbs (g)"
                             value={carbs}
                             onChange={(e) => setCarbs(e.target.value)}
-                            className="bg-zinc-800 border border-zinc-700 rounded-none px-3 py-2 text-white"
+                            className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white"
                         />
                         <input
                             type="number"
                             placeholder="Fat (g)"
                             value={fat}
                             onChange={(e) => setFat(e.target.value)}
-                            className="bg-zinc-800 border border-zinc-700 rounded-none px-3 py-2 text-white"
+                            className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white"
                         />
                     </div>
 
@@ -379,17 +379,17 @@ export default function MealsPage() {
                         placeholder="Description (optional)"
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        className="bg-zinc-800 border border-zinc-700 rounded-none px-3 py-2 text-white"
+                        className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white"
                     />
 
                     <div className="flex items-center gap-3">
-                        <button type="submit" className="bg-indigo-600 text-white py-3 px-4 rounded-none font-semibold hover:bg-indigo-700">
+                        <button type="submit" className="bg-indigo-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-indigo-700">
                             Add Meal
                         </button>
                         <button
                             type="button"
                             onClick={() => saveCurrentAsFavorite()}
-                            className="bg-zinc-700 text-white py-3 px-4 rounded-none border border-zinc-700 hover:bg-zinc-600"
+                            className="bg-zinc-700 text-white py-3 px-4 rounded-lg border border-zinc-700 hover:bg-zinc-600"
                         >
                             Save as Favorite
                         </button>
@@ -408,7 +408,7 @@ export default function MealsPage() {
                 ) : (
                     <div className="space-y-4">
                         {mealList.map((meal) => (
-                            <div key={meal.id} className="border-2 rounded-none p-4 bg-zinc-800 shadow-sm flex justify-between items-start border-zinc-700">
+                            <div key={meal.id} className="border-2 rounded-lg p-4 bg-zinc-800 shadow-sm flex justify-between items-start border-zinc-700">
                                 <div>
                                     <p className="font-semibold capitalize text-white">{meal.type}</p>
                                     <p className="text-sm text-zinc-400">{meal.description || ""}</p>
@@ -431,17 +431,17 @@ export default function MealsPage() {
             {favModalOpen && (
                 <div className="fixed inset-0 z-40 flex items-center justify-center">
                     <div className="absolute inset-0 bg-black/50" onClick={() => setFavModalOpen(false)} />
-                    <div className="relative z-50 w-full max-w-md p-6 bg-zinc-900 border border-zinc-800 rounded-none">
+                    <div className="relative z-50 w-full max-w-md p-6 bg-zinc-900 border border-zinc-800 rounded-lg">
                         <h3 className="text-lg font-semibold text-white mb-3">Save Favorite</h3>
                         <label className="text-xs text-zinc-400">Name</label>
                         <input
                             value={favModalName}
                             onChange={(e) => setFavModalName(e.target.value)}
-                            className="w-full bg-zinc-800 border border-zinc-700 rounded-none px-3 py-2 text-white mb-3"
+                            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white mb-3"
                         />
                         <div className="flex justify-end gap-2">
-                            <button onClick={() => { setFavModalOpen(false); setFavModalPayload(null); }} className="px-3 py-2 bg-zinc-700 text-white rounded-none">Cancel</button>
-                            <button onClick={confirmSaveFavorite} className="px-3 py-2 bg-indigo-600 text-white rounded-none">Save</button>
+                            <button onClick={() => { setFavModalOpen(false); setFavModalPayload(null); }} className="px-3 py-2 bg-zinc-700 text-white rounded-lg">Cancel</button>
+                            <button onClick={confirmSaveFavorite} className="px-3 py-2 bg-indigo-600 text-white rounded-lg">Save</button>
                         </div>
                     </div>
                 </div>
@@ -466,14 +466,14 @@ function FavoritesBar({ favorites, onQuickAdd, onRemove }: { favorites: Favorite
         <div className="flex flex-wrap gap-3">
             {favorites.length === 0 && <div className="text-zinc-400">No favorites yet — save a meal to favorites to quick add it.</div>}
             {favorites.map((f) => (
-                <div key={f.id} className="bg-zinc-800 border border-zinc-700 p-3 rounded-none w-56">
+                <div key={f.id} className="bg-zinc-800 border border-zinc-700 p-3 rounded-lg w-56">
                     <div className="flex items-center justify-between">
                         <div>
                             <div className="font-semibold text-white">{f.name}</div>
                             <div className="text-xs text-zinc-400">{f.calories} kcal • P {f.protein_g}g</div>
                         </div>
                         <div className="flex flex-col items-end gap-2">
-                            <button onClick={() => onQuickAdd(f)} className="bg-indigo-600 text-white text-sm px-2 py-1 rounded-none">Quick Add</button>
+                            <button onClick={() => onQuickAdd(f)} className="bg-indigo-600 text-white text-sm px-2 py-1 rounded-lg">Quick Add</button>
                             <button onClick={() => onRemove(f.id)} className="text-zinc-400 text-xs hover:text-zinc-300">Remove</button>
                         </div>
                     </div>
