@@ -87,70 +87,71 @@ export default function TemplatesPage() {
 
   return (
     <div className="space-y-10 max-w-3xl mx-auto">
-      <h1 className="text-4xl font-bold text-slate-900">📋 Workout Templates</h1>
+      <h1 className="text-4xl font-black text-white">WORKOUT TEMPLATES</h1>
 
       {/* --- Add Template Form --- */}
-      <div className="bg-white p-6 rounded-2xl shadow border border-slate-200">
-        <h2 className="text-2xl font-semibold mb-4">Create Template</h2>
+      <div className="bg-zinc-900 p-6 border-2 border-zinc-800">
+        <h2 className="text-2xl font-bold text-white mb-4">Create Template</h2>
 
         <form onSubmit={addTemplate} className="grid grid-cols-1 gap-4">
           <div>
-            <label className="block mb-1 text-sm">Template Name</label>
+            <label className="block mb-1 text-sm font-bold text-zinc-400">Template Name</label>
             <input
               type="text"
               placeholder="e.g. Push Day, Lower A"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2"
+              className="w-full bg-zinc-800 border border-zinc-700 px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500"
               required
             />
           </div>
 
           <div>
-            <label className="block mb-1 text-sm">Notes</label>
+            <label className="block mb-1 text-sm font-bold text-zinc-400">Notes</label>
             <textarea
               placeholder="Optional notes (e.g. heavy bench focus)"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2"
+              className="w-full bg-zinc-800 border border-zinc-700 px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500"
               rows={3}
             />
           </div>
 
-          {/* later you could add UI here for selecting exercises, sets, reps */}
-
           <button
             type="submit"
-            className="bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700"
+            className="bg-blue-600 text-white py-3 font-black hover:bg-blue-700 transition-colors"
           >
-            Save Template
+            SAVE TEMPLATE
           </button>
         </form>
       </div>
 
       {/* --- Templates List --- */}
       <div>
-        <h2 className="text-2xl font-semibold mb-4">Your Templates</h2>
+        <h2 className="text-2xl font-bold text-white mb-4">Your Templates</h2>
 
         {loading ? (
-          <p className="text-slate-600">Loading...</p>
+          <p className="text-zinc-400">Loading...</p>
         ) : templateList.length === 0 ? (
-          <p className="text-slate-600">No templates saved yet.</p>
+          <div className="bg-zinc-900 border-2 border-zinc-800 p-8 text-center">
+            <p className="text-zinc-400">No templates saved yet.</p>
+            <p className="text-zinc-500 text-sm mt-2">Create your first template above!</p>
+          </div>
         ) : (
           <div className="space-y-4">
             {templateList.map((tpl) => (
               <div
                 key={tpl.id}
-                className="border rounded-lg p-4 bg-white shadow-sm flex justify-between items-center"
+                className="bg-zinc-900 border-2 border-zinc-800 p-4 flex justify-between items-center"
               >
                 <div>
-                  <p className="font-semibold">{tpl.name}</p>
+                  <p className="font-bold text-white">{tpl.name}</p>
                   {tpl.notes && (
-                    <p className="text-sm text-slate-500 mt-1">
+                    <p className="text-sm text-zinc-400 mt-1">
                       {tpl.notes}
                     </p>
                   )}
-                  <p className="text-xs text-slate-400 mt-1">
+                  <p className="text-xs text-zinc-500 mt-1">
                     Created: {new Date(tpl.created_at).toLocaleDateString()}
                   </p>
                 </div>
@@ -158,13 +159,13 @@ export default function TemplatesPage() {
                 <div className="flex gap-3 items-center">
                   <button
                     onClick={() => loadIntoWorkout(tpl.id)}
-                    className="text-indigo-600 font-semibold hover:text-indigo-800 text-sm"
+                    className="px-4 py-2 bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors text-sm"
                   >
-                    Load
+                    LOAD
                   </button>
                   <button
                     onClick={() => removeTemplate(tpl.id)}
-                    className="text-red-500 font-bold hover:text-red-700 text-lg"
+                    className="px-3 py-2 bg-red-600 text-white font-bold hover:bg-red-700 transition-colors"
                   >
                     ✕
                   </button>
