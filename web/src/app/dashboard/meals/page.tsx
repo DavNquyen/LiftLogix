@@ -112,6 +112,98 @@ export default function MealsPage() {
     const [fat, setFat] = useState("");
     const [description, setDescription] = useState("");
 
+    const [favorites, setFavorites] = useState<Favorite[]>([]);
+    const favStorageKey = `favorite_meals_${String(user?.id || "guest")}`;
+
+    const [favModalOpen, setFavModalOpen] = useState(false);
+    const [favModalName, setFavModalName] = useState("");
+    const [favModalPayload, setFavModalPayload] = useState<Partial<Favorite> | null>(null);
+    useEffect(() => {
+        try {
+            const raw = typeof window !== "undefined" ? localStorage.getItem(favStorageKey) : null;
+            if (raw) setFavorites(JSON.parse(raw));
+        } catch (e) {
+            setFavorites([]);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user]);
+
+    function persistFavorites(next: Favorite[]) {
+        try {
+            localStorage.setItem(favStorageKey, JSON.stringify(next));
+            setFavorites(next);
+        } catch (e) {
+            console.error("Failed to persist favorites", e);
+        }
+    }
+
+    function saveCurrentAsFavorite() {
+        // Open the modal pre-filled with current form values
+        setFavModalPayload({
+            type,
+            calories: Number(calories) || 0,
+            protein_g: Number(protein) || 0,
+            carbs_g: Number(carbs) || 0,
+            fat_g: Number(fat) || 0,
+        });
+        setFavModalName(`${type} ${calories || ""} kcal`);
+        setFavModalOpen(true);
+    }
+
+    async function quickAddFavorite(fav: Favorite) {
+        try {
+            await meals.create({
+                type: fav.type as MealType,
+                calories: fav.calories,
+                protein_g: fav.protein_g,
+                carbs_g: fav.carbs_g,
+                fat_g: fav.fat_g,
+                description: fav.name,
+            });
+            await loadMeals();
+        } catch (e) {
+            console.error("Quick add failed", e);
+            alert("Failed to add favorite meal.");
+        }
+    }
+
+    function removeFavorite(id: string) {
+        const next = favorites.filter((f) => f.id !== id);
+        persistFavorites(next);
+    }
+
+    function quickSaveFavoriteFromMeal(meal: Meal) {
+        // Open naming modal with meal data
+        setFavModalPayload({
+            type: meal.type,
+            calories: meal.calories,
+            protein_g: meal.protein_g,
+            carbs_g: meal.carbs_g,
+            fat_g: meal.fat_g,
+        });
+        setFavModalName(`${meal.type} ${meal.calories} kcal`);
+        setFavModalOpen(true);
+    }
+
+    function confirmSaveFavorite() {
+        if (!favModalPayload) return;
+        const fav: Favorite = {
+            id: String(Date.now()),
+            name: favModalName || `${favModalPayload.type || "meal"}`,
+            type: (favModalPayload.type as MealType) || "snack",
+            calories: Number(favModalPayload.calories) || 0,
+            protein_g: Number(favModalPayload.protein_g) || 0,
+            carbs_g: Number(favModalPayload.carbs_g) || 0,
+            fat_g: Number(favModalPayload.fat_g) || 0,
+        };
+        const next = [fav, ...favorites].slice(0, 20);
+        persistFavorites(next);
+        // reset modal
+        setFavModalOpen(false);
+        setFavModalPayload(null);
+        setFavModalName("");
+    }
+
     async function handleAddMeal(e: React.FormEvent) {
         e.preventDefault();
         try {
@@ -172,7 +264,7 @@ export default function MealsPage() {
             <h1 className="text-4xl font-bold text-white">🍽️ Meal Tracking</h1>
 
             {/* Add Meal Form */}
-            <div className="bg-zinc-900 border-2 border-zinc-800 p-6 rounded-2xl">
+            <div className="bg-zinc-900 border-2 border-zinc-800 p-6 rounded-none">
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-2xl font-semibold text-white">Add Meal</h2>
                     {totals && (
@@ -231,13 +323,19 @@ export default function MealsPage() {
                     </div>
                 )}
 
+                {/* Quick Add Favorites inside Add Meal card */}
+                <div className="mb-4">
+                    <h3 className="text-sm font-semibold text-zinc-300 mb-2">Quick Add Favorites</h3>
+                    <FavoritesBar onQuickAdd={quickAddFavorite} favorites={favorites} onRemove={removeFavorite} />
+                </div>
+
                 <form onSubmit={handleAddMeal} className="grid grid-cols-1 gap-4">
                     <div>
                         <label className="block mb-1 text-sm text-zinc-300">Type</label>
                         <select
                             value={type}
                             onChange={(e) => setType(e.target.value as MealType)}
-                            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white"
+                            className="w-full bg-zinc-800 border border-zinc-700 rounded-none px-3 py-2 text-white"
                         >
                             <option value="breakfast">Breakfast</option>
                             <option value="lunch">Lunch</option>
@@ -252,28 +350,28 @@ export default function MealsPage() {
                             placeholder="Calories"
                             value={calories}
                             onChange={(e) => setCalories(e.target.value)}
-                            className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white"
+                            className="bg-zinc-800 border border-zinc-700 rounded-none px-3 py-2 text-white"
                         />
                         <input
                             type="number"
                             placeholder="Protein (g)"
                             value={protein}
                             onChange={(e) => setProtein(e.target.value)}
-                            className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white"
+                            className="bg-zinc-800 border border-zinc-700 rounded-none px-3 py-2 text-white"
                         />
                         <input
                             type="number"
                             placeholder="Carbs (g)"
                             value={carbs}
                             onChange={(e) => setCarbs(e.target.value)}
-                            className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white"
+                            className="bg-zinc-800 border border-zinc-700 rounded-none px-3 py-2 text-white"
                         />
                         <input
                             type="number"
                             placeholder="Fat (g)"
                             value={fat}
                             onChange={(e) => setFat(e.target.value)}
-                            className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white"
+                            className="bg-zinc-800 border border-zinc-700 rounded-none px-3 py-2 text-white"
                         />
                     </div>
 
@@ -281,12 +379,21 @@ export default function MealsPage() {
                         placeholder="Description (optional)"
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white"
+                        className="bg-zinc-800 border border-zinc-700 rounded-none px-3 py-2 text-white"
                     />
 
-                    <button type="submit" className="bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700">
-                        Add Meal
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button type="submit" className="bg-indigo-600 text-white py-3 px-4 rounded-none font-semibold hover:bg-indigo-700">
+                            Add Meal
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => saveCurrentAsFavorite()}
+                            className="bg-zinc-700 text-white py-3 px-4 rounded-none border border-zinc-700 hover:bg-zinc-600"
+                        >
+                            Save as Favorite
+                        </button>
+                    </div>
                 </form>
             </div>
 
@@ -301,21 +408,77 @@ export default function MealsPage() {
                 ) : (
                     <div className="space-y-4">
                         {mealList.map((meal) => (
-                            <div key={meal.id} className="border-2 rounded-lg p-4 bg-zinc-800 shadow-sm flex justify-between items-start border-zinc-700">
+                            <div key={meal.id} className="border-2 rounded-none p-4 bg-zinc-800 shadow-sm flex justify-between items-start border-zinc-700">
                                 <div>
                                     <p className="font-semibold capitalize text-white">{meal.type}</p>
                                     <p className="text-sm text-zinc-400">{meal.description || ""}</p>
                                     <p className="text-sm mt-1 text-zinc-300">{meal.calories} kcal • P {meal.protein_g}g • C {meal.carbs_g}g • F {meal.fat_g}g</p>
                                 </div>
 
-                                <button onClick={() => removeMeal(meal.id)} className="text-rose-400 font-bold hover:text-rose-300">
-                                    ✕
-                                </button>
+                                <div className="flex flex-col items-end gap-2">
+                                    <button onClick={() => quickSaveFavoriteFromMeal(meal)} className="text-emerald-300 text-sm hover:text-emerald-200">Save to Favorites</button>
+                                    <button onClick={() => removeMeal(meal.id)} className="text-rose-400 font-bold hover:text-rose-300">
+                                        ✕
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>
                 )}
             </div>
+
+            {/* Modal for naming favorites (simple in-app popup) */}
+            {favModalOpen && (
+                <div className="fixed inset-0 z-40 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/50" onClick={() => setFavModalOpen(false)} />
+                    <div className="relative z-50 w-full max-w-md p-6 bg-zinc-900 border border-zinc-800 rounded-none">
+                        <h3 className="text-lg font-semibold text-white mb-3">Save Favorite</h3>
+                        <label className="text-xs text-zinc-400">Name</label>
+                        <input
+                            value={favModalName}
+                            onChange={(e) => setFavModalName(e.target.value)}
+                            className="w-full bg-zinc-800 border border-zinc-700 rounded-none px-3 py-2 text-white mb-3"
+                        />
+                        <div className="flex justify-end gap-2">
+                            <button onClick={() => { setFavModalOpen(false); setFavModalPayload(null); }} className="px-3 py-2 bg-zinc-700 text-white rounded-none">Cancel</button>
+                            <button onClick={confirmSaveFavorite} className="px-3 py-2 bg-indigo-600 text-white rounded-none">Save</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// --- Favorites support (kept inline for this page) ---
+interface Favorite {
+    id: string;
+    name: string;
+    type: MealType;
+    calories: number;
+    protein_g: number;
+    carbs_g: number;
+    fat_g: number;
+}
+
+function FavoritesBar({ favorites, onQuickAdd, onRemove }: { favorites: Favorite[]; onQuickAdd: (f: Favorite) => Promise<void>; onRemove: (id: string) => void }) {
+    return (
+        <div className="flex flex-wrap gap-3">
+            {favorites.length === 0 && <div className="text-zinc-400">No favorites yet — save a meal to favorites to quick add it.</div>}
+            {favorites.map((f) => (
+                <div key={f.id} className="bg-zinc-800 border border-zinc-700 p-3 rounded-none w-56">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <div className="font-semibold text-white">{f.name}</div>
+                            <div className="text-xs text-zinc-400">{f.calories} kcal • P {f.protein_g}g</div>
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                            <button onClick={() => onQuickAdd(f)} className="bg-indigo-600 text-white text-sm px-2 py-1 rounded-none">Quick Add</button>
+                            <button onClick={() => onRemove(f.id)} className="text-zinc-400 text-xs hover:text-zinc-300">Remove</button>
+                        </div>
+                    </div>
+                </div>
+            ))}
         </div>
     );
 }
